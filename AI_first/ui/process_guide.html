@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Process Guide</title>
+  <link rel="stylesheet" href="style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="index.html">Home</a>
+      <a class="nav-link nav-process" href="process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <div class="tabs">
+      <button class="tab is-active" data-tab="ai-first-loop" type="button">AI-first Loop</button>
+      <button class="tab" data-tab="personas-windows" type="button">Personas and Windows</button>
+      <button class="tab" data-tab="project-planning" type="button">Project Planning</button>
+      <button class="tab" data-tab="bug-management" type="button">Bug Management Workflow</button>
+    </div>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Process Guide</h1>
+        <p class="muted small">How to use AI_first for process, project management, and bug management. Use support views for context, personas for decisions, and stage action files to capture evidence.</p>
+      </div>
+      <div class="badges">
+        <a class="btn primary" href="../docs/user_docs/process_guide.pdf" download>Download Process PDF</a>
+      </div>
+    </header>
+
+    <section class="card">
+      <details class="block">
+        <summary class="h4">Activation (First Session)</summary>
+        <p class="muted small">Start with the support views to find work, then move through the loop and persona windows to capture decisions.</p>
+        <ul class="muted small">
+          <li>Copy the <code>AI_first/</code> directory into your repo root.</li>
+          <li>Open <a href="index.html">AI_first/ui/index.html</a> as the bundle landing page.</li>
+          <li>Open <a href="PM.html">PM.html</a> and <a href="bugmgmt_issues.html">Bug Management</a> to identify active work and open issues.</li>
+          <li>Choose the active project, bug, or action you are taking on.</li>
+          <li>Create or update the stage action file at <code>AI_first/projects/&lt;project&gt;/phases/phase&lt;NN&gt;/actions/&lt;project&gt;_phase&lt;NN&gt;_stage_&lt;name&gt;_action.md</code>.</li>
+          <li>Record decisions and updates in the stage action file as you go.</li>
+        </ul>
+        <details class="block">
+          <summary class="h4">Repo Layout</summary>
+          <ul class="muted small">
+            <li>Support tooling lives under <code>AI_first/</code> (process docs, Bug Management (BugMgmt), UI reports).</li>
+            <li>Project planning docs live under <code>AI_first/projects/</code>.</li>
+            <li>Add product workspace directories in downstream repos as needed (outside <code>AI_first/</code>).</li>
+          </ul>
+        </details>
+        <details class="block">
+          <summary class="h4">Optional Automation</summary>
+          <p class="muted small">Use scripts only when you want to regenerate UI views. The day-to-day workflow is AI-first and doc-driven.</p>
+          <ul class="muted small">
+            <li><code>python3 AI_first/scripts/render_docs.py</code> to render markdown into <code>AI_first/ui/docs/</code>.</li>
+            <li><code>python3 AI_first/scripts/watch_docs.py</code> to auto-render while editing.</li>
+            <li><code>python3 AI_first/scripts/init_project.py --project &lt;project&gt; --prefix &lt;PREFIX&gt; --owner "Name"</code> to scaffold a project.</li>
+            <li><code>python3 AI_first/scripts/issues.py list --format json --output AI_first/bugmgmt/exports/json/bugmgmt_issues.json</code> to regenerate JSON.</li>
+            <li><code>python3 AI_first/scripts/issues.py list --format html --output AI_first/ui/bugmgmt_issues.html</code> to regenerate the HTML report.</li>
+          </ul>
+        </details>
+        <details class="block">
+          <summary class="h4">Notes</summary>
+          <ul class="muted small">
+            <li>Keep content PII-free unless explicitly required.</li>
+            <li>Prefer local assets and deterministic outputs.</li>
+            <li>Bug Management (BugMgmt) is optional; remove or ignore <code>AI_first/bugmgmt/</code>, <code>AI_first/ui/bugmgmt_issues.html</code>, and <code>AI_first/scripts/issues.py</code> if you do not need it, and remove the Bug Management link from navigation if desired.</li>
+            <li>Run scripts from the repo root; use <code>python3</code> (or <code>python</code> if mapped to Python 3).</li>
+            <li>Update this guide when the process changes.</li>
+          </ul>
+        </details>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Context Launch Prompt</h2>
+      <p class="muted small">Use this before selecting any persona so every session starts from the same entry point.</p>
+      <div class="badges">
+        <button class="btn danger" type="button" id="copyContextPrompt">Copy Prompt</button>
+        <span class="muted small" id="copyContextPromptStatus" role="status" aria-live="polite"></span>
+      </div>
+      <details class="block">
+        <summary class="h4">Prompt Text</summary>
+        <code id="contextPromptText">Context Launch: Review AI_first/ui/index.html, AI_first/ui/PM.html, AI_first/ui/bugmgmt_issues.html, AI_first/docs/process.md, AI_first/docs/projectplan.md, and AI_first/docs/project_wide_docs/personas.md. Identify the active project, phase, and stage action file; list open bugs; summarize current status; and ask which persona to activate next (default order: Project Creator/Owner -> Project/Process Manager -> Developer -> QA Lead; add optional personas from AI_first/docs/project_wide_docs/personas.md only when scope triggers them). If no stage action file exists, propose the file path using the naming convention.</code>
+      </details>
+    </section>
+
+    <section class="card tab-panel is-active" id="ai-first-loop" data-tab="ai-first-loop">
+      <h2 class="h4">AI-first Loop</h2>
+      <p class="muted small">Use AI to move through a four-step loop: review context, activate personas, plan and update the docs, then execute.</p>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot legend-loop"></span>AI-first Loop</span>
+        <span class="legend-item"><span class="legend-dot legend-project"></span>Project Planning</span>
+        <span class="legend-item"><span class="legend-dot legend-bug"></span>Bug Management</span>
+      </div>
+      <div class="grid-4">
+        <div class="loop-step step-card step-loop">
+          <div class="kicker">Step 1</div>
+          <h3 class="h5">Review Context</h3>
+          <p class="muted small">Ask Codex to review the AI_first context before work begins.</p>
+          <p class="small">Output: current phase and active stage action file summary.</p>
+        </div>
+        <div class="loop-step step-card step-loop">
+          <div class="kicker">Step 2</div>
+          <h3 class="h5">Activate Personas</h3>
+          <p class="muted small">Use personas to define actions, acceptance criteria, and risks before implementation.</p>
+          <p class="small">Output: decisions recorded in the stage action file.</p>
+        </div>
+        <div class="loop-step step-card step-loop">
+          <div class="kicker">Step 3</div>
+          <h3 class="h5">Plan and Update</h3>
+          <p class="muted small">Update the stage action file and phase docs to reflect the next actions.</p>
+          <p class="small">Output: updated phase definition/action plan and stage action log.</p>
+        </div>
+        <div class="loop-step step-card step-loop">
+          <div class="kicker">Step 4</div>
+          <h3 class="h5">Execute</h3>
+          <p class="muted small">Execute actions, validate outcomes, and record results.</p>
+          <p class="small">Output: validation notes and completion status logged.</p>
+        </div>
+      </div>
+      <details class="block">
+        <summary class="h4">AI Prompt Examples</summary>
+        <p class="muted small">Use these as starting points for each step of the loop. Adjust to the active phase and stage action file.</p>
+        <div class="prompt-grid">
+          <div class="prompt-card">
+            <div class="kicker">Step 1</div>
+            <h3 class="h5">Review Context</h3>
+            <p class="muted small">Use the Context Launch prompt above (Copy Prompt) to start the session.</p>
+            <code id="contextPromptExample"></code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Step 2</div>
+            <h3 class="h5">Activate Personas</h3>
+            <p class="muted small">Activate personas to define actions and acceptance criteria.</p>
+            <code>Activate Project/Process Manager Persona. Review the active stage action file and propose 3 next actions with acceptance criteria and risks.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Step 3</div>
+            <h3 class="h5">Plan and Update</h3>
+            <p class="muted small">Draft the doc updates for project actions and logs.</p>
+            <code>Draft updates for the stage action file and related project docs. Note next steps and owners.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Step 4</div>
+            <h3 class="h5">Execute</h3>
+            <p class="muted small">Do the developer work and capture outcomes.</p>
+            <code>Act as Developer Persona. Implement the chosen action, summarize changes, and draft closure notes for the stage action file (and Bug Management entry if applicable).</code>
+          </div>
+        </div>
+      </details>
+      <details class="block">
+        <summary class="h4">Artifact Map (Source of Truth)</summary>
+        <p class="muted small">This map mirrors the AI-first Loop and links to the source-of-truth artifacts for each step.</p>
+        <div class="flow flow-vertical">
+          <div class="flow-node">
+            <span class="flow-step">1</span>
+            <div class="flow-content">
+              <div class="flow-title">Review Context</div>
+              <div class="flow-links">
+                <a href="PM.html">PM.html</a>
+                <a href="bugmgmt_issues.html">Bug Management</a>
+                <a href="docs/process.html">process.md</a>
+                <a href="docs/projectplan.html">projectplan.md</a>
+              </div>
+            </div>
+          </div>
+          <div class="flow-node">
+            <span class="flow-step">2</span>
+            <div class="flow-content">
+              <div class="flow-title">Activate Personas</div>
+              <div class="flow-links">
+                <a href="docs/project_wide_docs/personas.html">personas.md</a>
+                <a href="docs/process.html">process.md</a>
+              </div>
+              <div class="flow-note">Record decisions in the active stage action file.</div>
+            </div>
+          </div>
+          <div class="flow-node">
+            <span class="flow-step">3</span>
+            <div class="flow-content">
+              <div class="flow-title">Plan / Update</div>
+              <div class="flow-links">
+                <a href="docs/templates/phase_definition_template.html">phase definition template</a>
+                <a href="docs/templates/phase_action_plan_template.html">action plan template</a>
+                <a href="docs/templates/action_stage_template.html">stage action template</a>
+                <a href="docs/projectplan.html">projectplan.md</a>
+              </div>
+              <div class="flow-note">Swap the template link with your active stage action file.</div>
+            </div>
+          </div>
+          <div class="flow-node">
+            <span class="flow-step">4</span>
+            <div class="flow-content">
+              <div class="flow-title">Execute</div>
+              <div class="flow-links">
+                <a href="bugmgmt_issues.html">Bug Management</a>
+                <a href="PM.html">PM.html</a>
+              </div>
+              <div class="flow-note">Use Bug Management when execution is bug-driven; log validation notes in the stage action file.</div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card tab-panel" id="personas-windows" data-tab="personas-windows">
+      <h2 class="h4">Personas and Windows</h2>
+      <p class="muted small">Default to three terminals or windows: Project Creator/Owner (switching to Project/Process Manager once the project is defined), Developer, and QA. Keep each perspective visible while AI drafts and you validate the work.</p>
+      <div class="grid-3">
+        <div class="loop-step terminal-card terminal-pm">
+          <div class="kicker">Terminal 1</div>
+          <h3 class="h5">Project Creator/Owner -> Project/Process Manager</h3>
+          <p class="muted small">Define the project setup, then review the plan, active phase docs, and action plan.</p>
+          <p class="small">Start with project definition, then log decisions and keep actions aligned.</p>
+        </div>
+        <div class="loop-step terminal-card terminal-dev">
+          <div class="kicker">Terminal 2</div>
+          <h3 class="h5">Developer</h3>
+          <p class="muted small">Work on implementation, track local changes, and validate results.</p>
+          <p class="small">Update stage action files as work completes.</p>
+        </div>
+        <div class="loop-step terminal-card terminal-qa">
+          <div class="kicker">Terminal 3</div>
+          <h3 class="h5">QA</h3>
+          <p class="muted small">Draft and verify bug entries, confirm reproduction steps, and log test notes.</p>
+          <p class="small">Use Bug Management to track open and closed issues.</p>
+        </div>
+      </div>
+      <details class="block">
+        <summary class="h4">AI Prompt Examples</summary>
+        <p class="muted small">Use these prompts to keep each terminal aligned with its persona.</p>
+        <div class="prompt-grid">
+          <div class="prompt-card">
+            <div class="kicker">Project Creator/Owner Persona</div>
+            <p class="muted small">Initialize the project setup.</p>
+            <code>Activate Project Creator/Owner Persona. Confirm project name, purpose, owner, prefix, and initial phases to create.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Project/Process Manager Persona</div>
+            <p class="muted small">Clarify scope and next actions.</p>
+            <code>Activate Project/Process Manager Persona. Select the active project and phase, review the stage action file, and continue from the last update with 3 next actions and acceptance criteria.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Developer Persona</div>
+            <p class="muted small">Execute identified work or fix logged bugs.</p>
+            <code>Activate Developer Persona. Select the active project and phase, continue from the last update, and carry out the actions already identified or fix a logged bug. Summarize changes and draft updates for the stage action file and bug entry.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">QA Lead Persona</div>
+            <p class="muted small">Validate and document outcomes.</p>
+            <code>Activate QA Lead Persona. Select the active project and phase, continue from the last update, and either log a bug or outline a test automation suite. Draft validation notes for the stage action file or bug entry.</code>
+          </div>
+        </div>
+      </details>
+      <details class="block">
+        <summary class="h4">Primary personas (core workflow)</summary>
+        <div class="grid-3">
+          <div class="persona-card persona-owner">
+            <div class="kicker">Primary persona</div>
+            <h3 class="h5">Project Creator/Owner Persona</h3>
+            <p class="muted small">Focus: Initialize and define.</p>
+            <ul class="muted small">
+              <li>Use for first-time setup or new project creation.</li>
+              <li>Confirm project name, purpose, owner, and prefix.</li>
+              <li>Define initial phases and files to create.</li>
+            </ul>
+          </div>
+          <div class="persona-card persona-pm">
+            <div class="kicker">Primary persona</div>
+            <h3 class="h5">Project/Process Manager Persona</h3>
+            <p class="muted small">Focus: Plan and steer.</p>
+            <ul class="muted small">
+              <li>Define phases and actions in <code>projectplan.md</code> and phase docs.</li>
+              <li>Confirm scope and acceptance criteria in stage action files.</li>
+              <li>Use <a href="PM.html">PM.html</a> as the portfolio view.</li>
+            </ul>
+          </div>
+          <div class="persona-card persona-dev">
+            <div class="kicker">Primary persona</div>
+            <h3 class="h5">Developer Persona</h3>
+            <p class="muted small">Focus: Build and resolve.</p>
+            <ul class="muted small">
+              <li>Execute the active stage action file.</li>
+              <li>Analyze root cause and propose fixes in Bug Management.</li>
+              <li>Update status as work moves to <code>in_progress</code> and <code>closed</code>.</li>
+            </ul>
+          </div>
+          <div class="persona-card persona-qa">
+            <div class="kicker">Primary persona</div>
+            <h3 class="h5">QA Lead Persona</h3>
+            <p class="muted small">Focus: Validate and capture.</p>
+            <ul class="muted small">
+              <li>Draft bug entries with AI and confirm reproduction steps.</li>
+              <li>Validate fixes and update notes for closed issues.</li>
+              <li>Use <a href="bugmgmt_issues.html">Bug Management</a> for audit visibility.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      <details class="block">
+        <summary class="h4">Optional personas (scope-triggered)</summary>
+        <p class="muted small">Use these when the work crosses boundaries or introduces new risks.</p>
+        <div class="grid-3">
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Product Manager</h3>
+            <p class="muted small">Focus: Scope and acceptance.</p>
+            <ul class="muted small">
+              <li>Define acceptance criteria and boundaries.</li>
+              <li>Clarify in/out of scope and open questions.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Repository Steward</h3>
+            <p class="muted small">Focus: Protect structure.</p>
+            <ul class="muted small">
+              <li>Keep AI_first and project work separated.</li>
+              <li>Review structure and README updates.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Docs Expert</h3>
+            <p class="muted small">Focus: Keep docs correct.</p>
+            <ul class="muted small">
+              <li>Update process and project docs as needed.</li>
+              <li>Fix broken links and improve clarity.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">UI/Accessibility</h3>
+            <p class="muted small">Focus: Usability and a11y.</p>
+            <ul class="muted small">
+              <li>Review UI consistency and accessibility.</li>
+              <li>Flag usability and layout issues.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Bug Triage</h3>
+            <p class="muted small">Focus: Data integrity.</p>
+            <ul class="muted small">
+              <li>Validate IDs, required fields, and owners.</li>
+              <li>Confirm status and severity consistency.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Automation/Tooling</h3>
+            <p class="muted small">Focus: Keep exports in sync.</p>
+            <ul class="muted small">
+              <li>List commands to refresh outputs.</li>
+              <li>Validate regenerated reports.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Architect</h3>
+            <p class="muted small">Focus: Cross-boundary review.</p>
+            <ul class="muted small">
+              <li>Use for major structure or workflow changes.</li>
+              <li>Output: architecture risks and acceptance conditions.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Security</h3>
+            <p class="muted small">Focus: Threats and mitigations.</p>
+            <ul class="muted small">
+              <li>Use when new data flows or secrets are involved.</li>
+              <li>Output: threat notes and mitigation plan.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Ops/Observability</h3>
+            <p class="muted small">Focus: Operational readiness.</p>
+            <ul class="muted small">
+              <li>Use when automation or runbooks change.</li>
+              <li>Output: monitoring and rollback gaps.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">Performance/Cost</h3>
+            <p class="muted small">Focus: Scale and efficiency.</p>
+            <ul class="muted small">
+              <li>Use when performance or cost is a concern.</li>
+              <li>Output: thresholds and perf risks.</li>
+            </ul>
+          </div>
+          <div class="persona-card">
+            <div class="kicker">Optional persona</div>
+            <h3 class="h5">DBA</h3>
+            <p class="muted small">Focus: Data integrity.</p>
+            <ul class="muted small">
+              <li>Use if a database or schema change is introduced.</li>
+              <li>Output: integrity risks and backup needs.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card tab-panel" id="project-planning" data-tab="project-planning">
+      <h2 class="h4">Project Planning &amp; Delivery</h2>
+      <p class="muted small">Keep project planning AI-first: define phase intent, plan actions, then deliver and review outcomes while PM.html mirrors progress.</p>
+      <p class="muted small">Use the appropriate persona to draft, execute, and validate updates.</p>
+      <p class="muted small">Primary artifacts: <code>phase_definition.md</code>, <code>action_plan_phaseNN.md</code>, the active stage action file, and <a href="PM.html">PM.html</a>.</p>
+      <div class="grid-3">
+        <div class="loop-step step-card step-project">
+          <div class="kicker">Step 1</div>
+          <h3 class="h5">Define Phase</h3>
+          <ul class="muted small">
+            <li>Update phase goals, scope, and acceptance criteria.</li>
+            <li>Align with the project plan and current priorities.</li>
+            <li>Output: refreshed phase definition.</li>
+          </ul>
+        </div>
+        <div class="loop-step step-card step-project">
+          <div class="kicker">Step 2</div>
+          <h3 class="h5">Plan Actions</h3>
+          <ul class="muted small">
+            <li>Break work into actions in the action plan.</li>
+            <li>Create or update the active stage action file.</li>
+            <li>Output: actionable plan and stage log.</li>
+          </ul>
+        </div>
+        <div class="loop-step step-card step-project">
+          <div class="kicker">Step 3</div>
+          <h3 class="h5">Deliver &amp; Review</h3>
+          <ul class="muted small">
+            <li>Execute actions and log progress in the stage action file.</li>
+            <li>Validate outcomes against acceptance criteria.</li>
+            <li>Update PM.html and next actions.</li>
+          </ul>
+        </div>
+      </div>
+      <details class="block">
+        <summary class="h4">AI Prompt Examples</summary>
+        <p class="muted small">Use these prompts to keep planning and delivery aligned to the active phase.</p>
+        <div class="prompt-grid">
+          <div class="prompt-card">
+            <div class="kicker">Define Phase</div>
+            <p class="muted small">Clarify goals, actions, and acceptance criteria.</p>
+            <code>Select the active project and phase, continue from the last update, and draft updates to the phase definition with goals, scope, and acceptance criteria.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Plan Actions</div>
+            <p class="muted small">Turn phase goals into actionable work.</p>
+            <code>Using the current phase definition, draft or update the action plan and the active stage action file with next actions, owners, and checkpoints.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Deliver &amp; Review</div>
+            <p class="muted small">Summarize delivery, validation, and next steps.</p>
+            <code>Summarize delivery progress and validation results, update the stage action file with outcomes, and list the next actions to reflect in PM.html.</code>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card tab-panel" id="bug-management" data-tab="bug-management">
+      <h2 class="h4">Bug Management Workflow</h2>
+      <p class="muted small">Keep bugs AI-first: capture the issue, work the fix, and confirm closure with evidence.</p>
+      <p class="muted small">Use the appropriate persona to draft, execute, and validate updates.</p>
+      <p class="muted small">Primary artifacts: <code>issues.jsonl</code>, the active stage action file, and <a href="bugmgmt_issues.html">Bug Management</a>.</p>
+      <div class="grid-3">
+        <div class="loop-step step-card step-bug">
+          <div class="kicker">Step 1</div>
+          <h3 class="h5">Open</h3>
+          <ul class="muted small">
+            <li>Draft a clear bug report with reproduction steps and impact.</li>
+            <li>Confirm summary and severity before logging.</li>
+            <li>Output: new entry in <code>issues.jsonl</code>.</li>
+          </ul>
+        </div>
+        <div class="loop-step step-card step-bug">
+          <div class="kicker">Step 2</div>
+          <h3 class="h5">Work</h3>
+          <ul class="muted small">
+            <li>Analyze root cause and propose a fix plan.</li>
+            <li>Track progress and decisions in the stage action file.</li>
+            <li>Output: status updated as work moves forward.</li>
+          </ul>
+        </div>
+        <div class="loop-step step-card step-bug">
+          <div class="kicker">Step 3</div>
+          <h3 class="h5">Close</h3>
+          <ul class="muted small">
+            <li>Record closure notes and validation results.</li>
+            <li>Reflect outcomes in project actions if needed.</li>
+            <li>Output: bug closed with evidence recorded.</li>
+          </ul>
+        </div>
+      </div>
+      <details class="block">
+        <summary class="h4">AI Prompt Examples</summary>
+        <p class="muted small">Use these prompts to keep bug handling AI-first while keeping the bug log accurate.</p>
+        <div class="prompt-grid">
+          <div class="prompt-card">
+            <div class="kicker">Open</div>
+            <p class="muted small">Draft a new bug entry with reproduction steps and impact.</p>
+            <code>Draft a bug entry with required fields, clear reproduction steps, and impact notes. Suggest severity and summary for review.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Work</div>
+            <p class="muted small">Analyze root cause and propose a fix plan.</p>
+            <code>Given this bug entry, analyze root cause, propose a fix plan, and draft updates for the stage action file and bug status.</code>
+          </div>
+          <div class="prompt-card">
+            <div class="kicker">Close</div>
+            <p class="muted small">Summarize closure notes and align project actions.</p>
+            <code>Summarize fix outcomes, draft closure notes, and list any project plan updates needed.</code>
+          </div>
+        </div>
+      </details>
+    </section>
+
+  </div>
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll(".tab"));
+      const panels = Array.from(document.querySelectorAll(".tab-panel"));
+      const activate = (id) => {
+        tabs.forEach((tab) => tab.classList.toggle("is-active", tab.dataset.tab === id));
+        panels.forEach((panel) => panel.classList.toggle("is-active", panel.dataset.tab === id));
+        if (id) {
+          history.replaceState(null, "", `#${id}`);
+        }
+      };
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => activate(tab.dataset.tab));
+      });
+      if (window.location.hash) {
+        const id = window.location.hash.slice(1);
+        if (panels.some((panel) => panel.dataset.tab === id)) {
+          activate(id);
+        }
+      }
+
+      const copyButton = document.getElementById("copyContextPrompt");
+      const copyText = document.getElementById("contextPromptText");
+      const copyStatus = document.getElementById("copyContextPromptStatus");
+      const exampleText = document.getElementById("contextPromptExample");
+      const setStatus = (message) => {
+        if (!copyStatus) return;
+        copyStatus.textContent = message;
+        if (message) {
+          setTimeout(() => {
+            copyStatus.textContent = "";
+          }, 2000);
+        }
+      };
+      if (copyText && exampleText) {
+        exampleText.textContent = copyText.textContent.trim();
+      }
+      if (copyButton && copyText) {
+        copyButton.addEventListener("click", async () => {
+          const text = copyText.textContent.trim();
+          try {
+            await navigator.clipboard.writeText(text);
+            setStatus("Copied");
+            return;
+          } catch (err) {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "absolute";
+            textarea.style.left = "-9999px";
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+              document.execCommand("copy");
+              setStatus("Copied");
+            } catch (err2) {
+              setStatus("Copy failed");
+            }
+            document.body.removeChild(textarea);
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

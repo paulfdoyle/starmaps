@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phase 01 — Repo Structure</title>
+  <link rel="stylesheet" href="../../../../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../../../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../../../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../../../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../../../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Phase 01 — Repo Structure</h1>
+        <p class="muted small">AI_first/projects/reporestructure/phases/phase01/phase_definition.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../../../../projects/reporestructure/phases/phase01/phase_definition.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Phase 01 — Repo Structure</h1>
+<ul>
+<li>**Objective:** Define and build the new repository structure for the Python star visualization project.</li>
+<li>**Status:** Active.</li>
+<li>**Scope:** In: directory layout, naming conventions, top-level docs, migration entry points; Out: code migration or refactoring.</li>
+<li>**Target structure:**</li>
+<li><code>src/</code> core Python package (e.g., <code>starmaps/</code>).</li>
+<li><code>scripts/</code> runnable entry points (e.g., <code>run_bco1.py</code>).</li>
+<li><code>data/</code> datasets (raw/processed splits documented).</li>
+<li><code>assets/</code> images and static resources.</li>
+<li><code>docs/</code> project documentation (separate from <code>AI_first/</code>).</li>
+<li><code>tests/</code> automated or ad-hoc tests.</li>
+<li><code>tools/</code> one-off utilities and data helpers.</li>
+<li><code>archive/</code> legacy code retained for reference (read-only).</li>
+<li>Top-level: <code>README.md</code>, <code>pyproject.toml</code> or <code>requirements.txt</code>, <code>.gitignore</code>.</li>
+<li>**Entry points:** document a single BCO1 run path under <code>scripts/</code> plus the module it calls under <code>src/</code>.</li>
+<li>**Definition of completion:** New structure exists and is documented; stage action file populated with persona notes and DoD references.</li>
+<li>**Stages:**</li>
+<li>Repo structure stage -&gt; <code>AI_first/projects/reporestructure/phases/phase01/actions/reporestructure_phase01_stage_repo_structure_action.md</code></li>
+<li>**Dependencies:** None.</li>
+<li>**Risks/assumptions:** Avoid breaking existing workflows; archive legacy content safely.</li>
+<li>**Links:** <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/reporestructure/project_summary_reporestructure.md</code></li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

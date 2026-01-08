@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Management Report</title>
+  <link rel="stylesheet" href="style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="index.html">Home</a>
+      <a class="nav-link nav-process" href="process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Project Management Report</h1>
+        <p class="muted small">Portfolio view for projects, phases, health, and next actions. Use this page for visual checks; `AI_first/docs/projectplan.md` is the internal source of truth.</p>
+      </div>
+    </header>
+
+    <div class="summary">
+      <div class="summary-card"><div class="muted small">Projects</div><div class="h6" data-count="projects">3</div></div>
+      <div class="summary-card"><div class="muted small">Active Phases</div><div class="h6" data-count="active-phases">1</div></div>
+      <div class="summary-card"><div class="muted small">Open Bugs</div><div class="h6" data-count="open-bugs">1</div></div>
+    </div>
+
+    <section class="card">
+      <div class="table-wrap">
+        <table class="issues pm-table">
+          <thead>
+            <tr>
+              <th>Project</th>
+              <th>Phase</th>
+              <th>Status</th>
+              <th>Health</th>
+              <th>Owner</th>
+              <th>Last Updated</th>
+              <th>Next Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- PROJECT_ROWS_START -->
+            <tr data-link="project_reporestructure.html" tabindex="0" role="button" aria-label="Open reporestructure project details">
+              <td>
+                <a class="fw" href="project_reporestructure.html">reporestructure</a>
+                <div class="muted small">Create a professional, standard repo structure for a Python-first star data visualization codebase.</div>
+              </td>
+              <td>Phase 01 — Repo Structure</td>
+              <td><span class="badge status-in_progress">Active</span></td>
+              <td><span class="badge status-closed">On Track</span></td>
+              <td>Paul Doyle</td>
+              <td>TBD</td>
+              <td class="muted small">
+                <div>Complete Phase 01 Repo Structure.</div>
+                <div>Execute active phase action plan.</div>
+              </td>
+            </tr>
+            <tr data-link="project_bugmgmt.html" tabindex="0" role="button" aria-label="Open bugmgmt project details">
+              <td>
+                <a class="fw" href="project_bugmgmt.html">bugmgmt</a>
+                <div class="muted small">Develop a comprehensive bug management system for projects going forward.</div>
+              </td>
+              <td>Phase 01 — Foundation</td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td>Paul Doyle</td>
+              <td>2025-12-22</td>
+              <td class="muted small">
+                <div>Maintain workflow, exports, and UI.</div>
+                <div>Log new issues as they arise.</div>
+              </td>
+            </tr>
+            <tr data-link="project_project_management.html" tabindex="0" role="button" aria-label="Open project_management project details">
+              <td>
+                <a class="fw" href="project_project_management.html">project_management</a>
+                <div class="muted small">Build a Project Management report (<code>PM.html</code>) that summarizes projects, phases, statuses, and actions, with links to user documents and the BugMgmt system.</div>
+              </td>
+              <td>Phase 03 — Consolidation under single directory</td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td>Paul Doyle</td>
+              <td>2025-12-23</td>
+              <td class="muted small">
+                <div>Maintain PM dashboard and docs.</div>
+                <div>Maintain workflow, exports, and UI.</div>
+              </td>
+            </tr>
+<!-- PROJECT_ROWS_END -->
+          </tbody>
+        </table>
+      </div>
+      <p class="filter-hint">Source of truth: <a href="docs/projectplan.html">AI_first/docs/projectplan.md</a> and <a href="bugmgmt_issues.html">Bug Management</a>.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">User Docs Hub</h2>
+      <div class="table-wrap">
+        <table class="issues">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+              <th>Links</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <strong>User Guide Template</strong>
+                <div class="muted small">LaTeX starter for PDF user docs.</div>
+              </td>
+              <td><span class="badge status-open">Draft</span></td>
+              <td>2025-12-22</td>
+              <td>
+                <div class="links">
+                  <a href="../docs/user_docs/user_doc_template.tex">Source (.tex)</a>
+                  <a href="docs/user_docs/README.html">Build Steps</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Process Guide</strong>
+                <div class="muted small">How to use this repo for bug and project management.</div>
+              </td>
+              <td><span class="badge status-open">Draft</span></td>
+              <td>2025-12-22</td>
+              <td>
+                <div class="links">
+                  <a href="process_guide.html">Guide (HTML)</a>
+                  <a href="../docs/user_docs/process_guide.pdf">Process PDF</a>
+                  <a href="../docs/user_docs/process_guide.tex">Source (.tex)</a>
+                  <a href="docs/user_docs/README.html">Build Steps</a>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Verification Checklist</h2>
+      <ol class="muted small">
+        <li>Confirm each project row reflects the current phase and status.</li>
+        <li>Verify ownership and last updated dates match project docs.</li>
+        <li>Review open items in <a href="bugmgmt_issues.html">Bug Management</a> and confirm prefixes.</li>
+        <li>Use <a href="process_guide.html">Process Management</a> for the AI-first workflow and activation steps.</li>
+        <li>Check user docs status and ensure build steps are current.</li>
+      </ol>
+    </section>
+
+  </div>
+  <script>
+    document.querySelectorAll("tr[data-link]").forEach((row) => {
+      row.addEventListener("click", (evt) => {
+        if (evt.target.closest("a")) return;
+        const target = row.getAttribute("data-link");
+        if (target) window.location.href = target;
+      });
+      row.addEventListener("keydown", (evt) => {
+        if (evt.target.closest("a")) return;
+        if (evt.key !== "Enter" && evt.key !== " ") return;
+        const target = row.getAttribute("data-link");
+        if (target) window.location.href = target;
+      });
+    });
+  </script>
+</body>
+</html>

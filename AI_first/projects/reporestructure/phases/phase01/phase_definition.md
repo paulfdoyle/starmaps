@@ -1,0 +1,22 @@
+# Phase 01 — Repo Structure
+
+- **Objective:** Define and build the new repository structure for the Python star visualization project.
+- **Status:** Active.
+- **Scope:** In: directory layout, naming conventions, top-level docs, migration entry points; Out: code migration or refactoring.
+- **Target structure:**
+  - `src/` core Python package (e.g., `starmaps/`).
+  - `scripts/` runnable entry points (e.g., `run_bco1.py`).
+  - `data/` datasets (raw/processed splits documented).
+  - `assets/` images and static resources.
+  - `docs/` project documentation (separate from `AI_first/`).
+  - `tests/` automated or ad-hoc tests.
+  - `tools/` one-off utilities and data helpers.
+  - `archive/` legacy code retained for reference (read-only).
+  - Top-level: `README.md`, `pyproject.toml` or `requirements.txt`, `.gitignore`.
+- **Entry points:** document a single BCO1 run path under `scripts/` plus the module it calls under `src/`.
+- **Definition of completion:** New structure exists and is documented; stage action file populated with persona notes and DoD references.
+- **Stages:**
+  - Repo structure stage -> `AI_first/projects/reporestructure/phases/phase01/actions/reporestructure_phase01_stage_repo_structure_action.md`
+- **Dependencies:** None.
+- **Risks/assumptions:** Avoid breaking existing workflows; archive legacy content safely.
+- **Links:** `AI_first/docs/projectplan.md`, `AI_first/projects/reporestructure/project_summary_reporestructure.md`

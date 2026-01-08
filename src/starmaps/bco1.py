@@ -5,6 +5,7 @@ import random
 from skyfield.api import load
 import math
 from math import *
+from pathlib import Path
 from pyquaternion import Quaternion
 import pygame.gfxdraw
 import warnings
@@ -17,8 +18,15 @@ import platform
 
 warnings.filterwarnings("ignore")
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data" / "processed"
+ASSETS_DIR = REPO_ROOT / "assets" / "images"
+OUTPUT_DIR = ASSETS_DIR / "generated"
+DEFAULT_DATA_FILE = DATA_DIR / "updated_merged_star_exo_data.json"
+LEGACY_DATA_FILE = REPO_ROOT / "datasets" / "star_database_colors.json"
+
 observerPOS = (0,0,1)
-output_dir = "saved_images/"
+output_dir = str(OUTPUT_DIR)
 global_timescale = load.timescale()
 pygame.font.init()
 menu_font = pygame.font.SysFont('Consolas', 14, bold=True)  # Further reduced font size to fit buttons
@@ -55,7 +63,7 @@ screen_width, screen_height = 1000,1000     # default size
 BF = 2.512  # brightness factor Created a bigger size difference between stars on the screen
 BRM6 = 4  # Base radius for magnitude 6 stars, this will control if mag 6 is visible.
 FPS = 90  # Frames per second
-JSON_FILE = '../datasets/star_database_colors.json'  # Global variable to hold name of the file to read for star data
+JSON_FILE = str(LEGACY_DATA_FILE)  # Legacy data path; prefer DEFAULT_DATA_FILE
 ScreenScaler = 0.9
 
 # These index constants are assignment order dependent. Change with caution
@@ -336,7 +344,7 @@ def load_custom_star_data(json_file_path):
         # missing_hr_ids = missing_values_df['hr']
 
         # # Save the missing HIP IDs to a text file
-        # missing_hr_ids.to_csv('../datasets/missing_stars.txt', index=False, header=False)
+        # missing_hr_ids.to_csv('data/processed/missing_stars.txt', index=False, header=False)
 
         df.dropna(inplace=True)
         df = df.assign(ra_hours=df['ra_degrees'] / 15.0, epoch_year=2000)
@@ -1912,6 +1920,7 @@ def handle_slider(screen, circle_x, circle_radius):
 def main():
      # Initialise Pygame and the Screen for primary display, setting Height and Width to the Height of the canvas
     # bestHeight is set as the width and height of the display screen
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     screen, clock, bestHeight = initialize_pygame()
     canvas_width = bestHeight
     # This is the main surface for all drawing
@@ -1950,9 +1959,9 @@ def main():
     canvas_set = buildStarImageDB(canvas.get_width())
 
     # Load the data from a file
- #   star_data_np = load_custom_star_data('../datasets/star_database_colors.json')
+    #   star_data_np = load_custom_star_data(str(LEGACY_DATA_FILE))
 
-    star_data_np = load_custom_star_data('../datasets/updated_merged_star_exo_data.json')
+    star_data_np = load_custom_star_data(str(DEFAULT_DATA_FILE))
 
     # Now create all of the sprites for the wire-frame and the points for rotation
     all_frame_points, all_frame_sprites_group = generate_frame_sprites(control_vars,canvas)
@@ -2106,9 +2115,7 @@ def main():
 
         else:
             print("Ending simulation")
+    pygame.quit()
 
 if __name__ == "__main__":
     main()
-
-pygame.quit()
-

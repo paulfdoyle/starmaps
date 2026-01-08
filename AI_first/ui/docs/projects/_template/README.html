@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Template</title>
+  <link rel="stylesheet" href="../../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Project Template</h1>
+        <p class="muted small">AI_first/projects/_template/README.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../../projects/_template/README.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Project Template</h1>
+<p>Use this folder as a starting point for new project docs.</p>
+<h2>How to use</h2>
+<p>1) Copy <code>AI_first/projects/_template/</code> to <code>AI_first/projects/&lt;project&gt;/</code>.</p>
+<p>2) Rename files that include placeholders:</p>
+<ul>
+<li><code>project_summary_template.md</code> -&gt; <code>project_summary_&lt;project&gt;.md</code></li>
+<li><code>phases/phase01/actions/project_phase01_stage_foundation_action.md</code> -&gt; <code>&lt;project&gt;_phase01_stage_foundation_action.md</code></li>
+</ul>
+<p>3) Replace placeholder text such as <code>&lt;project&gt;</code>, <code>&lt;phase_name&gt;</code>, and <code>&lt;stage_name&gt;</code>.</p>
+<p>4) Update <code>AI_first/docs/projectplan.md</code> to register the new project.</p>
+<p>5) Run <code>python3 AI_first/scripts/render_docs.py</code> to refresh formatted docs.</p>
+<h2>Alternative</h2>
+<p>Run the initializer script instead of copying manually:</p>
+<pre><code>
+python3 AI_first/scripts/init_project.py --project &lt;project&gt; --prefix &lt;PREFIX&gt; --owner &quot;Name&quot;
+</code></pre>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

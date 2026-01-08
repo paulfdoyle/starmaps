@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Docs</title>
+  <link rel="stylesheet" href="../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">User Docs</h1>
+        <p class="muted small">AI_first/docs/user_docs/README.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../docs/user_docs/README.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>User Docs</h1>
+<p>Use this directory to build user-facing guides as PDFs. Documents here are local, PII-free by default, and intended to be generated from LaTeX sources.</p>
+<h2>User Docs Catalog</h2>
+<table><thead><tr>
+<th>Document</th>
+<th>Status</th>
+<th>Last Updated</th>
+<th>Files</th>
+</tr></thead><tbody>
+<tr>
+<td>User Guide Template</td>
+<td>Draft</td>
+<td>2025-12-22</td>
+<td><code>user_doc_template.tex</code></td>
+</tr>
+<tr>
+<td>Process Guide</td>
+<td>Draft</td>
+<td>2025-12-22</td>
+<td><code>process_guide.tex</code>, <code>AI_first/ui/process_guide.html</code></td>
+</tr>
+</tbody></table>
+<h2>How to build</h2>
+<p>1) Install a LaTeX toolchain (example: <code>pdflatex</code>).</p>
+<p>2) From the repo root:</p>
+<pre><code>
+   cd AI_first/docs/user_docs
+   pdflatex user_doc_template.tex
+   pdflatex process_guide.tex
+</code></pre>
+<p>3) Open <code>user_doc_template.pdf</code> after it is generated.</p>
+<p>4) The HTML version of the process guide lives at <code>AI_first/ui/process_guide.html</code>.</p>
+<h2>Formatting and update guidance</h2>
+<ul>
+<li>Keep tone and terminology consistent with <code>AI_first/docs/process.md</code> and project summaries.</li>
+<li>Update the catalog table when you add or publish documents.</li>
+<li>Record revision dates in the document header and reflect them in the catalog.</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

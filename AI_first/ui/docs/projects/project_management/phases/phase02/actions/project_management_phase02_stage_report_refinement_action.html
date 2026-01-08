@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stage Action (project_management_phase02_stage_report_refinement_action.md)</title>
+  <link rel="stylesheet" href="../../../../../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../../../../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../../../../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../../../../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../../../../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Stage Action (project_management_phase02_stage_report_refinement_action.md)</h1>
+        <p class="muted small">AI_first/projects/project_management/phases/phase02/actions/project_management_phase02_stage_report_refinement_action.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../../../../../projects/project_management/phases/phase02/actions/project_management_phase02_stage_report_refinement_action.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Stage Action (project_management_phase02_stage_report_refinement_action.md)</h1>
+<ul>
+<li>**Phase/Stage:** Phase 02 — Report refinement.</li>
+<li>**Objective:** Analyze PM.html and user docs, then propose a more professional presentation and formatting plan.</li>
+<li>**Scope:** In: layout, typography, information architecture, link grouping; Out: automation or new frameworks.</li>
+<li>**Acceptance:** Proposal includes sections, data fields, and formatting rules; all recommendations stay within <code>AI_first/ui/style/bugmgmt.css</code>.</li>
+<li>**Dependencies/data:** <code>AI_first/ui/PM.html</code>, <code>AI_first/docs/user_docs/README.md</code>, <code>AI_first/docs/projectplan.md</code>.</li>
+<li>**Outputs:** Phase 02 proposal and acceptance criteria.</li>
+<li>**Definition of Done:** Persona notes filled and proposal documented.</li>
+</ul>
+<h2>Personas (record outputs; use <code>AI_first/docs/templates/review_checklists.md</code>)</h2>
+<ul>
+<li>Project/Process Manager:</li>
+<li>Developer:</li>
+<li>QA Lead:</li>
+<li>Optional personas (Product Manager, Repository Steward, Docs Expert, UI/Accessibility, Bug Triage, Automation/Tooling, Architect, Security, Ops/Observability, Performance/Cost, DBA):</li>
+</ul>
+<h2>Analysis</h2>
+<ul>
+<li>PM.html mixes summary, links, and action text in a single table; this makes scanning harder and hides status/ownership context.</li>
+<li>Project status relies on free-text actions; there is no explicit &quot;Owner&quot;, &quot;Last updated&quot;, or &quot;Health&quot; field.</li>
+<li>The top stats are static and visually similar to BugMgmt, but they do not map to the project plan or issues.</li>
+<li>Links are crowded in a single cell; users have to parse multiple long URLs to locate the key artifact.</li>
+<li>User docs are presented as a single README link with no indication of published documents, status, or latest revision.</li>
+</ul>
+<h2>Proposal (professional presentation)</h2>
+<ul>
+<li>**Portfolio header:** keep the hero header, but add a short &quot;last updated&quot; line and a &quot;source of truth&quot; note (Project Plan + BugMgmt).</li>
+<li>**Project cards (or grouped rows):** each project row should include:</li>
+<li>Project name + purpose (secondary text).</li>
+<li>Phase name + phase status.</li>
+<li>Health pill (On Track / At Risk / Blocked) using existing badge colors.</li>
+<li>Owner + last updated date.</li>
+<li>Next actions as 1-2 bullets, not sentences.</li>
+<li>**Links grouped by type:** add a compact &quot;Primary&quot; link group (Summary, Action Plan, Stage Action) and a &quot;Supporting&quot; group (BugMgmt, User Docs).</li>
+<li>**User docs hub section:** list each user doc with status (Draft/Published), last updated date, and link to the PDF/TeX source.</li>
+<li>**Formatting rules:** use consistent row height, align text to baseline, keep secondary text in <code>muted small</code>, and limit action text to 2 lines.</li>
+</ul>
+<h2>Plan</h2>
+<ul>
+<li>Define new table columns and the standard fields for each project row.</li>
+<li>Add a user docs section that lists documents with status/last updated.</li>
+<li>Specify a maintenance checklist for keeping PM.html aligned with <code>AI_first/docs/projectplan.md</code>.</li>
+</ul>
+<h2>Execution notes</h2>
+<ul>
+<li>Implemented the professional PM.html layout with richer project status fields and link grouping.</li>
+<li>Added markdown viewer support (<code>AI_first/ui/markdown_viewer.html</code>, <code>AI_first/ui/assets/markdown.js</code>) for better .md rendering in the UI.</li>
+<li>Created project detail pages (<code>AI_first/ui/project_bugmgmt.html</code>, <code>AI_first/ui/project_project_management.html</code>) and updated user docs README formatting.</li>
+</ul>
+<h2>Validation</h2>
+<ul>
+<li>PM.html is readable in one screen without horizontal scrolling.</li>
+<li>Each project row includes owner, phase status, and next actions.</li>
+<li>User docs section lists at least one document with status + last updated.</li>
+</ul>
+<h2>Documentation updates</h2>
+<ul>
+<li>Update <code>AI_first/docs/projectplan.md</code> when Phase 02 is approved.</li>
+</ul>
+<h2>Close-out</h2>
+<ul>
+<li>Phase 02 approved; PM.html and user docs hub delivered.</li>
+<li>Closed on 2025-12-22.</li>
+</ul>
+<h2>Issues &amp; lessons</h2>
+<ul>
+<li>Pending.</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

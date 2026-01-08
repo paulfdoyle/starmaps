@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Delivery Process (Template)</title>
+  <link rel="stylesheet" href="../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../index.html">Home</a>
+      <a class="nav-link nav-process" href="../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Delivery Process (Template)</h1>
+        <p class="muted small">AI_first/docs/process.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../docs/process.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Delivery Process (Template)</h1>
+<p>Use this process to keep changes small, reviewable, and persona-driven. Copy/adapt for new projects.</p>
+<h2>AI-first mindset</h2>
+<ul>
+<li>Docs are the source of truth; the UI reflects them and keeps context visible.</li>
+<li>Personas provide structured prompts so the AI stays focused on scope, risks, and quality.</li>
+<li>The stage action file is the working log: decisions, validations, and DoD checks live there.</li>
+<li>PM.html is the portfolio view; Bug Management (BugMgmt) is the audit trail for problems and fixes.</li>
+<li>Work in small, reviewable slices so updates stay easy to validate.</li>
+</ul>
+<h2>Context setting (before you start)</h2>
+<ul>
+<li>Open <code>AI_first/ui/index.html</code> (bundle entry) and the support views: <code>AI_first/ui/PM.html</code> and <code>AI_first/ui/bugmgmt_issues.html</code>.</li>
+<li>Identify the active project, phase, and stage action file.</li>
+<li>Run the context launch prompt (see below) before selecting a persona.</li>
+<li>Open the primary docs for the active work: <code>AI_first/docs/process.md</code>, <code>AI_first/docs/projectplan.md</code>, <code>AI_first/docs/project_wide_docs/personas.md</code>, plus the phase definition/action plan.</li>
+<li>If the stage action file does not exist yet, create it under <code>AI_first/projects/&lt;project&gt;/phases/phase&lt;NN&gt;/actions/</code> using the naming convention.</li>
+<li>Record expected behaviors and acceptance criteria before implementation work.</li>
+<li>Log decisions and validations in the stage action file as you go.</li>
+</ul>
+<h2>Fast start (per session)</h2>
+<ul>
+<li>Start in <code>AI_first/ui/PM.html</code> and <code>AI_first/ui/bugmgmt_issues.html</code> to confirm the active work.</li>
+<li>Pick project/phase from <code>projectplan</code>; open the phase definition/action plan and linked stage actions (if any).</li>
+<li>Use <code>AI_first/docs/process.md</code> and <code>AI_first/docs/project_wide_docs/personas.md</code> as reference guides.</li>
+<li>Open a multi-context working set: project plan, phase docs, and the active stage action file in separate windows.</li>
+<li>Run personas (Project Creator/Owner for new projects, then Project/Process Manager → Developer → QA Lead by default); add optional personas only when scope triggers them.</li>
+<li>Execute, validate, update docs/DoD, and log issues/lessons.</li>
+</ul>
+<h2>Multi-context working set</h2>
+<ul>
+<li>Default to three windows open:</li>
+<li>**Project Creator/Owner (then Project/Process Manager):** define the project when starting a new one, then manage phases and actions using <code>AI_first/docs/projectplan.md</code> plus the active phase definition/action plan.</li>
+<li>**Developer:** fix bugs and execute project actions using the current stage action file and implementation context.</li>
+<li>**QA:** report bugs, update docs, and find possible solutions to bugs using the Bug Management UI and the relevant docs.</li>
+<li>Keep support views open for context: <code>AI_first/ui/PM.html</code> (projects/actions) and <code>AI_first/ui/bugmgmt_issues.html</code> (bugs).</li>
+<li>Keep the persona catalog (<code>AI_first/docs/project_wide_docs/personas.md</code>) accessible; use it to decide when to add specialist reviews.</li>
+<li>Treat the stage action file as the working scratchpad: log decisions, validations, and DoD checks as you go.</li>
+</ul>
+<h2>Initial setup (drop-in)</h2>
+<ul>
+<li>Copy the <code>AI_first/</code> directory into your target repo root and treat it as the process/Project Management/Bug Management bundle.</li>
+<li>Open <code>AI_first/ui/index.html</code> as the landing page for the bundle.</li>
+<li>Start with the **Project Creator/Owner** persona:</li>
+<li>Choose the project name and update <code>AI_first/docs/projectplan.md</code> and <code>AI_first/projects/&lt;project&gt;/</code> paths accordingly (rename the sample project if needed).</li>
+<li>Capture the project purpose, scope boundaries, and initial phases in <code>projectplan.md</code> and the project summary file.</li>
+<li>Decide whether to keep the sample Bug Management (BugMgmt) module/UI and the LaTeX user-doc template; remove or keep per your needs.</li>
+<li>After naming, continue with the remaining default personas (Project/Process Manager → Developer → QA Lead).</li>
+</ul>
+<h2>Project initialization (optional)</h2>
+<ul>
+<li>Run <code>python3 AI_first/scripts/init_project.py --project &lt;project&gt; --prefix &lt;PREFIX&gt; --owner &quot;Name&quot;</code> to scaffold <code>AI_first/projects/&lt;project&gt;/</code>, update <code>AI_first/docs/projectplan.md</code>, and register Bug Management prefixes.</li>
+<li>The script also creates <code>AI_first/ui/project_&lt;project&gt;.html</code> and updates <code>AI_first/ui/PM.html</code> with the new row.</li>
+<li>After running, regenerate formatted docs via <code>python3 AI_first/scripts/render_docs.py</code>.</li>
+</ul>
+<h2>Repo layout (AI_first-only)</h2>
+<ul>
+<li><code>AI_first/</code>: template process docs, Bug Management tooling, UI reports/styles, and project planning docs.</li>
+<li><code>AI_first/projects/</code>: project planning docs (summaries, phases, stage actions).</li>
+</ul>
+<h2>Documentation rendering</h2>
+<ul>
+<li>While editing markdown under <code>AI_first/docs/</code> or <code>AI_first/projects/</code>, run <code>python3 AI_first/scripts/watch_docs.py</code> from the repo root to auto-render <code>AI_first/ui/docs/</code>.</li>
+<li>If you are not running the watcher, run <code>python3 AI_first/scripts/render_docs.py</code> after doc changes.</li>
+</ul>
+<h2>Support scripts (optional)</h2>
+<p>Run scripts from the repo root; use <code>python3</code> (or <code>python</code> if it maps to Python 3). Use these only when you want to regenerate UI outputs or scaffold docs.</p>
+<ul>
+<li><code>AI_first/scripts/render_docs.py</code>: render markdown into <code>AI_first/ui/docs/</code>.</li>
+<li><code>AI_first/scripts/render_pm.py</code>: refresh <code>AI_first/ui/PM.html</code> and <code>AI_first/ui/project_*.html</code> from project docs.</li>
+<li><code>AI_first/scripts/watch_docs.py</code>: auto-render docs while you edit.</li>
+<li><code>AI_first/scripts/init_project.py</code>: scaffold a new project, update <code>AI_first/docs/projectplan.md</code>, and add a PM.html row.</li>
+<li><code>AI_first/scripts/issues.py</code>: regenerate Bug Management JSON/HTML exports.</li>
+</ul>
+<h2>Source-of-truth stack</h2>
+<ul>
+<li>**Project plan:** <code>AI_first/docs/projectplan.md</code> lists active projects and links to <code>AI_first/projects/&lt;project&gt;/</code>.</li>
+<li>**Project directory:** project summary plus phases.</li>
+<li>**Phase definition:** per phase, with objective/scope/completion and stage list.</li>
+<li>**Phase action plan:** per phase, listing stages and persona actions, validation, and checklists.</li>
+<li>**Stage action file:** per stage, with persona sections and acceptance for that slice of work. Naming: <code>AI_first/projects/&lt;project&gt;/phases/phase&lt;NN&gt;/actions/&lt;project&gt;_phase&lt;NN&gt;_stage&lt;name&gt;_action.md</code>.</li>
+<li>**Templates:** <code>AI_first/docs/templates/</code> for project plan, phase definitions/action plans, stage actions, review checklists, and DoD.</li>
+</ul>
+<h2>Personas (defaults)</h2>
+<ul>
+<li>Start with: Project Creator/Owner → Project/Process Manager → Developer → QA Lead.</li>
+<li>Add optional personas from <code>AI_first/docs/project_wide_docs/personas.md</code> only when scope triggers them (Docs Expert, Product Manager, Repository Steward, UI/Accessibility, etc.).</li>
+</ul>
+<h2>Standard flow for a phase/stage</h2>
+<ol>
+<li>Read the project plan and the current project’s phase definition/action plan.</li>
+<li>Create or open the stage action file(s) under the phase <code>actions/</code> folder using the naming convention.</li>
+<li>Run personas and record outputs in the stage action file (use <code>AI_first/docs/templates/review_checklists.md</code>).</li>
+<li>Execute the work and run the changed scripts yourself; QA Lead/Test Engineering validate; Docs Expert updates docs when in scope.</li>
+<li>Close-out: complete the DoD checklist, log lessons, and mark the phase/stage done in the phase action plan and project plan.</li>
+</ol>
+<h2>Quality gates (apply to every stage action)</h2>
+<ul>
+<li>Expected behaviours/counts/filters and data scope are recorded before coding; note any temporary fallbacks and expiry conditions.</li>
+<li>Outputs are deterministic (ordering/filenames) and JSON-safe (no NaN/Infinity) where relevant.</li>
+<li>Data handling documented; avoid PII unless explicitly required for your project.</li>
+<li>DoD completed with test commands/results captured; issues log updated with learnings.</li>
+</ul>
+<h2>Bug Management (BugMgmt module)</h2>
+<ul>
+<li>Bug Management (BugMgmt) is optional. If you do not need it, remove or ignore <code>AI_first/bugmgmt/</code>, <code>AI_first/ui/bugmgmt_issues.html</code>, and <code>AI_first/scripts/issues.py</code>, and remove the Bug Management link from your UI navigation if desired.</li>
+<li>Source of truth is <code>AI_first/bugmgmt/issues/issues.jsonl</code> (one JSON object per line). Do not edit exports directly.</li>
+<li>Required fields: <code>id</code>, <code>date</code>, <code>project</code>, <code>phase</code>, <code>stage</code>, <code>area</code>, <code>status</code>, <code>severity</code>, <code>summary</code>, <code>owner</code> (defaults from <code>BUGMGMT_REPO_OWNER</code> or <code>git config user.name</code>, with optional overrides in <code>PROJECT_OWNERS</code> when set to <code>unassigned</code>).</li>
+<li>ID format uses a project-based prefix (example: <code>BMG-2025-01-001</code>). Configure prefixes in <code>AI_first/scripts/issues.py</code> (<code>PROJECT_PREFIXES</code>, e.g., <code>BMG</code>, <code>PMG</code>).</li>
+<li>For new bugs, include detail fields: <code>root_cause</code>, <code>proposed_fix</code>, <code>qa_reproduction</code> (QA reproduction steps).</li>
+<li>Example entry (single line):</li>
+</ul>
+<pre><code>
+  {&quot;id&quot;:&quot;BMG-2025-01-003&quot;,&quot;date&quot;:&quot;2025-01-07&quot;,&quot;project&quot;:&quot;bugmgmt&quot;,&quot;phase&quot;:&quot;01&quot;,&quot;stage&quot;:&quot;foundation&quot;,&quot;area&quot;:&quot;docs&quot;,&quot;status&quot;:&quot;open&quot;,&quot;severity&quot;:&quot;minor&quot;,&quot;summary&quot;:&quot;Short description&quot;,&quot;owner&quot;:&quot;unassigned&quot;,&quot;root_cause&quot;:&quot;TBD&quot;,&quot;proposed_fix&quot;:&quot;TBD&quot;,&quot;qa_reproduction&quot;:&quot;TBD&quot;}
+</code></pre>
+<ul>
+<li>Use status values <code>open</code>, <code>in_progress</code>, <code>closed</code> and severity values <code>critical</code>, <code>major</code>, <code>minor</code>, <code>nit</code>.</li>
+<li>Create a new entry when a bug is found; update the same entry when status or ownership changes.</li>
+<li>After any bug change (new entry or status/field update), regenerate exports; the HTML report must be recreated each time:</li>
+<li><code>python3 AI_first/scripts/issues.py list --format json --output AI_first/bugmgmt/exports/json/bugmgmt_issues.json</code></li>
+<li><code>python3 AI_first/scripts/issues.py list --format html --output AI_first/ui/bugmgmt_issues.html</code></li>
+<li>View locally via <code>file://</code> at <code>AI_first/ui/bugmgmt_issues.html</code>; filters and counts should match the JSONL store.</li>
+</ul>
+<h2>Naming and directories</h2>
+<ul>
+<li>**Project plan:** <code>AI_first/docs/projectplan.md</code>.</li>
+<li>**Project directory:** <code>AI_first/projects/&lt;project&gt;/</code> with project summary and phases.</li>
+<li>**Phase directory:** <code>AI_first/projects/&lt;project&gt;/phases/phase&lt;NN&gt;/</code> with <code>phase_definition.md</code> and <code>action_plan_phase&lt;NN&gt;.md</code>.</li>
+<li>**Stage actions:** <code>AI_first/projects/&lt;project&gt;/phases/phase&lt;NN&gt;/actions/&lt;project&gt;_phase&lt;NN&gt;_stage&lt;name&gt;_action.md</code>.</li>
+<li>**Templates:** <code>AI_first/docs/templates/</code> (project/phase/action/review/DoD).</li>
+</ul>
+<h2>Context launch prompt (copy/paste)</h2>
+<p>Use this prompt at the start of every session, before selecting a persona.</p>
+<pre><code>
+Context Launch: Review AI_first/ui/index.html, AI_first/ui/PM.html, AI_first/ui/bugmgmt_issues.html, AI_first/docs/process.md, AI_first/docs/projectplan.md, and AI_first/docs/project_wide_docs/personas.md. Identify the active project, phase, and stage action file; list open bugs; summarize current status; and ask which persona to activate next (default order: Project Creator/Owner -&gt; Project/Process Manager -&gt; Developer -&gt; QA Lead; add optional personas from AI_first/docs/project_wide_docs/personas.md only when scope triggers them). If no stage action file exists, propose the file path using the naming convention.
+</code></pre>
+<p>Expected output:</p>
+<ul>
+<li>Current projects and active phases; for the chosen project, list the current phase/stage and active stage action file.</li>
+<li>Open bugs and any blocking issues.</li>
+<li>Persona catalog and a clear prompt asking which persona to activate next.</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

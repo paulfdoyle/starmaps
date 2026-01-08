@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Detail — project_management</title>
+  <link rel="stylesheet" href="style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="index.html">Home</a>
+      <a class="nav-link nav-process" href="process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">project_management</h1>
+        <p class="muted small">PM.html summary for project review and governance.</p>
+      </div>
+    </header>
+
+    <div class="summary">
+      <div class="summary-card"><div class="muted small">Phases</div><div class="h6">3</div></div>
+      <div class="summary-card"><div class="muted small">Active Phase</div><div class="h6">Complete</div></div>
+      <div class="summary-card"><div class="muted small">Status</div><div class="h6">Complete</div></div>
+    </div>
+
+    <section class="card">
+      <details class="block">
+        <summary class="h4">Project Summary</summary>
+        <ul class="muted small">
+          <li><strong>Project:</strong> project_management</li>
+          <li><strong>Purpose:</strong> Build a Project Management report (`PM.html`) that summarizes projects, phases, statuses, and actions, with links to user documents and the BugMgmt system.</li>
+          <li><strong>Current Goal:</strong> Phase 03 complete; maintain PM dashboard and docs.</li>
+          <li><strong>Environment:</strong> Local docs and static HTML; offline.</li>
+          <li><strong>Constraints:</strong> Keep PII-free; deterministic outputs; local assets only.</li>
+          <li><strong>Consumers:</strong> Project stakeholders reviewing project status.</li>
+          <li><strong>Status:</strong> Complete</li>
+          <li><strong>Owner:</strong> Paul Doyle</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Phase History</h2>
+      <div class="table-wrap">
+        <table class="issues">
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- PHASE_ROWS_START -->
+            <tr data-phase="Phase 01 — PM.html foundation"
+                data-phase-def-id="phase01-def"
+                data-action-plan-id="phase01-plan"
+                data-stage-action-id="phase01-action"
+                tabindex="0" role="button" aria-label="View Phase 01 details">
+              <td>Phase 01 — PM.html foundation</td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td>2025-12-22</td>
+            </tr>
+            <tr data-phase="Phase 02 — Professional report &amp; docs presentation"
+                data-phase-def-id="phase02-def"
+                data-action-plan-id="phase02-plan"
+                data-stage-action-id="phase02-action"
+                tabindex="0" role="button" aria-label="View Phase 02 details">
+              <td>Phase 02 — Professional report &amp; docs presentation</td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td>2025-12-22</td>
+            </tr>
+            <tr data-phase="Phase 03 — Consolidation under single directory"
+                data-phase-def-id="phase03-def"
+                data-action-plan-id="phase03-plan"
+                data-stage-action-id="phase03-action"
+                tabindex="0" role="button" aria-label="View Phase 03 details">
+              <td>Phase 03 — Consolidation under single directory</td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td>2025-12-23</td>
+            </tr>
+<!-- PHASE_ROWS_END -->
+          </tbody>
+        </table>
+      </div>
+      <p class="filter-hint">Update this table as phases progress or close.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Phase Details</h2>
+      <p class="muted small" id="phaseDetailTitle">Select a phase to review the summary.</p>
+      <div class="phase-detail" id="phaseDetail">
+        <div class="muted small">No phase selected.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">User Docs Snapshot</h2>
+      <div class="table-wrap">
+        <table class="issues">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+              <th>Links</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>User Guide Template</td>
+              <td><span class="badge status-open">Draft</span></td>
+              <td>2025-12-22</td>
+              <td>
+                <div class="links">
+                  <a href="../docs/user_docs/user_doc_template.tex">Source (.tex)</a>
+                  <a href="docs/user_docs/README.html">Build Steps</a>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PHASE_TEMPLATES_START -->
+    <template id="phase01-def">
+      <ul class="muted small"><li><strong>Objective:</strong> Define the PM.html layout, data sources, and link requirements.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-22.</li><li><strong>Scope:</strong> In: project/phase/status/action summary requirements, link targets; Out: data ingestion automation.</li><li><strong>Definition of completion:</strong> Phase action plan and stage action exist with persona notes and DoD references.</li><li><strong>Stages:</strong></li><li>PM.html stage → <code>AI_first/projects/project_management/phases/phase01/actions/project_management_phase01_stage_pm_html_action.md</code></li><li><strong>Dependencies:</strong> BugMgmt UI (<code>AI_first/ui/bugmgmt_issues.html</code>) and user doc locations under <code>AI_first/docs/user_docs/</code>.</li><li><strong>Risks/assumptions:</strong> Keep summary data accurate and concise; no external calls.</li><li><strong>Links:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/project_management/project_summary_project_management.md</code></li></ul>
+    </template>
+    <template id="phase01-plan">
+      <ul class="muted small"><li><strong>Phase:</strong> see <code>AI_first/projects/project_management/phases/phase01/phase_definition.md</code>.</li><li><strong>Stage list:</strong></li><li>PM.html stage → <code>AI_first/projects/project_management/phases/phase01/actions/project_management_phase01_stage_pm_html_action.md</code></li><li><strong>Objective:</strong> Establish requirements and layout for the PM.html summary report.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-22.</li><li><strong>Scope/files:</strong> In: stage action doc(s); Out: data ingestion automation.</li><li><strong>Dependencies:</strong> None.</li><li><strong>Risks/assumptions:</strong> Keep the report static and maintainable.</li><li><strong>Persona actions:</strong> Default Project Creator/Owner → Project/Process Manager → Developer → QA Lead; add optional personas as needed.</li><li><strong>Validation:</strong> Stage action file exists and references review checklists.</li><li><strong>Rollback:</strong> Revert phase documents if scope changes.</li><li><strong>Ready checklist:</strong> Templates available.</li><li><strong>Done checklist:</strong> Stage action populated with persona notes.</li></ul>
+    </template>
+    <template id="phase01-action">
+      <ul class="muted small"><li><strong>Phase/Stage:</strong> Phase 01 — PM.html.</li><li><strong>Objective:</strong> Define PM.html content, layout, and link requirements.</li><li><strong>Scope:</strong> In: summary fields, status display rules, and link targets; Out: automation/integration.</li><li><strong>Acceptance:</strong> Persona notes recorded; required fields and link targets documented; DoD referenced.</li><li><strong>Dependencies/data:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/docs/user_docs/</code>, <code>AI_first/ui/bugmgmt_issues.html</code>.</li><li><strong>Outputs:</strong> PM.html requirements documented; any related process updates.</li><li><strong>Definition of Done:</strong> Persona notes filled, DoD checklist referenced, validation steps recorded.</li></ul>
+    </template>
+    <template id="phase02-def">
+      <ul class="muted small"><li><strong>Objective:</strong> Produce a more professional PM report layout and a clearer user docs hub.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-22.</li><li><strong>Scope:</strong> In: PM.html structure, formatting, and link organization; user docs index/formatting guidance. Out: automated data ingestion.</li><li><strong>Definition of completion:</strong> Phase action plan and stage action exist with a concrete proposal and acceptance criteria.</li><li><strong>Stages:</strong></li><li>Report refinement stage → <code>AI_first/projects/project_management/phases/phase02/actions/project_management_phase02_stage_report_refinement_action.md</code></li><li><strong>Dependencies:</strong> <code>AI_first/ui/PM.html</code>, <code>AI_first/docs/user_docs/README.md</code>, <code>AI_first/docs/projectplan.md</code>, <code>AI_first/ui/bugmgmt_issues.html</code>.</li><li><strong>Risks/assumptions:</strong> Keep the report static and easy to update; avoid introducing external assets.</li><li><strong>Links:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/project_management/project_summary_project_management.md</code></li></ul>
+    </template>
+    <template id="phase02-plan">
+      <ul class="muted small"><li><strong>Phase:</strong> see <code>AI_first/projects/project_management/phases/phase02/phase_definition.md</code>.</li><li><strong>Stage list:</strong></li><li>Report refinement stage → <code>AI_first/projects/project_management/phases/phase02/actions/project_management_phase02_stage_report_refinement_action.md</code></li><li><strong>Objective:</strong> Propose a more professional PM.html layout and improve user docs presentation.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-22.</li><li><strong>Scope/files:</strong> In: PM.html structure/formatting plan, user docs index improvements; Out: automation.</li><li><strong>Dependencies:</strong> None.</li><li><strong>Risks/assumptions:</strong> Keep changes within the existing BugMgmt CSS system.</li><li><strong>Persona actions:</strong> Default Project Creator/Owner → Project/Process Manager → Developer → QA Lead; add optional personas as needed.</li><li><strong>Validation:</strong> Proposal includes clear sections, data requirements, and acceptance criteria.</li><li><strong>Rollback:</strong> Revert Phase 02 docs if scope changes.</li><li><strong>Ready checklist:</strong> Phase 02 files exist.</li><li><strong>Done checklist:</strong> Proposal reviewed and approved.</li></ul>
+    </template>
+    <template id="phase02-action">
+      <ul class="muted small"><li><strong>Phase/Stage:</strong> Phase 02 — Report refinement.</li><li><strong>Objective:</strong> Analyze PM.html and user docs, then propose a more professional presentation and formatting plan.</li><li><strong>Scope:</strong> In: layout, typography, information architecture, link grouping; Out: automation or new frameworks.</li><li><strong>Acceptance:</strong> Proposal includes sections, data fields, and formatting rules; all recommendations stay within <code>AI_first/ui/style/bugmgmt.css</code>.</li><li><strong>Dependencies/data:</strong> <code>AI_first/ui/PM.html</code>, <code>AI_first/docs/user_docs/README.md</code>, <code>AI_first/docs/projectplan.md</code>.</li><li><strong>Outputs:</strong> Phase 02 proposal and acceptance criteria.</li><li><strong>Definition of Done:</strong> Persona notes filled and proposal documented.</li></ul>
+    </template>
+    <template id="phase03-def">
+      <ul class="muted small"><li><strong>Objective:</strong> Consolidate process, BugMgmt, and project management artifacts under <code>AI_first/</code> to simplify drop-in reuse.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-23.</li><li><strong>Scope:</strong> In: move project planning docs to <code>AI_first/projects/</code>, remove empty workspace directories, update paths/links, and validate rendering. Out: PM.html feature changes or new automation.</li><li><strong>Definition of completion:</strong> Stage action executed with assets consolidated under <code>AI_first/</code>, empty directories removed, and links updated; docs render without broken links.</li><li><strong>Stages:</strong></li><li>Consolidation under single directory stage → <code>AI_first/projects/project_management/phases/phase03/actions/project_management_phase03_stage_consolidation_under_single_directory_action.md</code></li><li><strong>Dependencies:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/project_management/</code>, <code>AI_first/ui/PM.html</code>, <code>AI_first/ui/project_project_management.html</code>, <code>AI_first/ui/docs/</code>.</li><li><strong>Risks/assumptions:</strong> Keep non-PM docs untouched; ensure references updated; avoid breaking BugMgmt UI.</li><li><strong>Links:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/project_management/project_summary_project_management.md</code></li></ul>
+    </template>
+    <template id="phase03-plan">
+      <ul class="muted small"><li><strong>Phase:</strong> see <code>AI_first/projects/project_management/phases/phase03/phase_definition.md</code>.</li><li><strong>Stage list:</strong></li><li>Consolidation under single directory stage → <code>AI_first/projects/project_management/phases/phase03/actions/project_management_phase03_stage_consolidation_under_single_directory_action.md</code></li><li><strong>Objective:</strong> Consolidate all process/PM/BugMgmt artifacts under <code>AI_first/</code>, updating links and documentation for drop-in reuse.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-23.</li><li><strong>Scope/files:</strong> In: move planning docs to <code>AI_first/projects/</code>, remove empty workspace directories, update link paths, doc rendering checks. Out: PM.html feature changes or automation.</li><li><strong>Dependencies:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/project_management/</code>, <code>AI_first/ui/PM.html</code>, <code>AI_first/ui/project_project_management.html</code>, <code>AI_first/ui/docs/</code>.</li><li><strong>Risks/assumptions:</strong> Keep cross-project links intact; avoid breaking BugMgmt UI.</li><li><strong>Persona actions:</strong> Default Project Creator/Owner → Project/Process Manager → Developer → QA Lead; add optional personas as needed.</li><li><strong>Validation:</strong> All PM links resolve; docs render; no broken references in <code>AI_first/ui/PM.html</code>.</li><li><strong>Rollback:</strong> Revert directory moves and link updates if consolidation fails.</li><li><strong>Ready checklist:</strong> Phase 03 files exist; target directory defined.</li><li><strong>Done checklist:</strong> Consolidation completed; links verified; documentation updated.</li></ul>
+    </template>
+    <template id="phase03-action">
+      <ul class="muted small"><li><strong>Phase/Stage:</strong> Phase 03 — Consolidation under single directory.</li><li><strong>Objective:</strong> Consolidate process, BugMgmt, and project management assets under <code>AI_first/</code> and update references.</li><li><strong>Scope:</strong> In: inventory PM docs/UI assets, move planning docs to <code>AI_first/projects/</code>, remove empty workspace directories, path/link updates, doc rendering checks. Out: content redesign or automation.</li><li><strong>Acceptance:</strong> Assets live under <code>AI_first/</code>; empty workspace directories removed; references updated in project/phase docs and <code>AI_first/ui/PM.html</code>; docs render without broken links.</li><li><strong>Dependencies/data:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/project_management/</code>, <code>AI_first/ui/PM.html</code>, <code>AI_first/ui/project_project_management.html</code>, <code>AI_first/ui/docs/</code>.</li><li><strong>Outputs:</strong> Asset inventory, consolidation plan, updated paths, validation notes.</li><li><strong>Definition of Done:</strong> Acceptance met; persona notes filled; validation captured.</li></ul>
+    </template>
+<!-- PHASE_TEMPLATES_END -->
+
+  </div>
+  <script>
+    const detail = document.getElementById("phaseDetail");
+    const detailTitle = document.getElementById("phaseDetailTitle");
+    const getTemplate = (id) => {
+      if (!id) return '<div class="muted small">No summary available.</div>';
+      const node = document.getElementById(id);
+      return node ? node.innerHTML.trim() : '<div class="muted small">No summary available.</div>';
+    };
+    const renderDetails = (row) => {
+      if (!row) return;
+      const phase = row.dataset.phase || "Phase Details";
+      const phaseDef = getTemplate(row.dataset.phaseDefId);
+      const actionPlan = getTemplate(row.dataset.actionPlanId);
+      const stageAction = getTemplate(row.dataset.stageActionId);
+      if (detailTitle) detailTitle.textContent = phase;
+      detail.innerHTML = `
+        <div class="details-grid">
+          <div class="detail-item">
+            <div class="detail-title">Phase Definition</div>
+            ${phaseDef}
+          </div>
+          <div class="detail-item">
+            <div class="detail-title">Action Plan</div>
+            ${actionPlan}
+          </div>
+          <div class="detail-item">
+            <div class="detail-title">Stage Action</div>
+            ${stageAction}
+          </div>
+        </div>
+      `;
+    };
+    document.querySelectorAll("tr[data-phase]").forEach((row) => {
+      row.addEventListener("click", (evt) => {
+        if (evt.target.closest("a")) return;
+        renderDetails(row);
+      });
+      row.addEventListener("keydown", (evt) => {
+        if (evt.target.closest("a")) return;
+        if (evt.key !== "Enter" && evt.key !== " ") return;
+        renderDetails(row);
+      });
+    });
+  </script>
+</body>
+</html>

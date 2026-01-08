@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI_first Bundle</title>
+  <link rel="stylesheet" href="style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="index.html">Home</a>
+      <a class="nav-link nav-process" href="process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">AI_first Bundle</h1>
+        <p class="muted small">This page lives inside <code>AI_first/</code> so it travels with the drop-in pack. Copy the folder into a repo, open this page, and use Project Management and Bug Management with your AI partner to plan, execute, and validate work.</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2 class="h4">Context Launch Prompt</h2>
+      <p class="muted small">Start every session with this prompt so the AI loads the full AI_first context before any persona decisions.</p>
+      <div class="badges">
+        <button class="btn danger" type="button" id="copyContextPrompt">Copy Prompt</button>
+        <span class="muted small" id="copyContextPromptStatus" role="status" aria-live="polite"></span>
+      </div>
+      <details class="block">
+        <summary class="h4">Prompt Text</summary>
+        <code id="contextPromptText">Context Launch: Review AI_first/ui/index.html, AI_first/ui/PM.html, AI_first/ui/bugmgmt_issues.html, AI_first/docs/process.md, AI_first/docs/projectplan.md, and AI_first/docs/project_wide_docs/personas.md. Identify the active project, phase, and stage action file; list open bugs; summarize current status; and ask which persona to activate next (default order: Project Creator/Owner -> Project/Process Manager -> Developer -> QA Lead; add optional personas from AI_first/docs/project_wide_docs/personas.md only when scope triggers them). If no stage action file exists, propose the file path using the naming convention.</code>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">What This Bundle Contains</h2>
+      <p class="muted small">A compact, drop-in set of docs, UI views, and templates that keep AI-led delivery structured and auditable.</p>
+      <ul class="muted small">
+        <li>Process docs, personas, and templates under <code>AI_first/docs/</code>.</li>
+        <li>Project planning docs under <code>AI_first/projects/</code>.</li>
+        <li>Bug management data + exports under <code>AI_first/bugmgmt/</code>.</li>
+        <li>Static UI reports under <code>AI_first/ui/</code>.</li>
+        <li>Automation scripts under <code>AI_first/scripts/</code>.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">AI-first Philosophy</h2>
+      <p class="muted small">This bundle keeps AI work grounded in a clear source-of-truth: PM.html for the portfolio view, stage action files for evidence, and Bug Management for audit trails. The goal is small, reviewable changes guided by personas and documented decisions, with deeper workflow details in the Process Management page.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Optional Automation (Manual Regeneration)</h2>
+      <p class="muted small">Scripts are only for refreshing UI exports or scaffolding; day-to-day work stays doc-driven and AI-led.</p>
+      <ul class="muted small">
+        <li><code>python3 AI_first/scripts/render_docs.py</code> — refresh <code>AI_first/ui/docs/</code> from markdown.</li>
+        <li><code>python3 AI_first/scripts/render_pm.py</code> — refresh <code>AI_first/ui/PM.html</code> and project detail pages.</li>
+        <li><code>python3 AI_first/scripts/watch_docs.py</code> — auto-render docs while you edit.</li>
+        <li><code>python3 AI_first/scripts/init_project.py</code> — scaffold new project docs and update PM.html.</li>
+        <li><code>python3 AI_first/scripts/issues.py list</code> — regenerate Bug Management JSON/HTML exports.</li>
+      </ul>
+    </section>
+
+    <p class="footer muted">Keep <code>AI_first/</code> intact; treat it as the drop-in bundle for process, Project Management, and Bug Management.</p>
+  </div>
+  <script>
+    (function () {
+      const copyButton = document.getElementById("copyContextPrompt");
+      const copyText = document.getElementById("contextPromptText");
+      const copyStatus = document.getElementById("copyContextPromptStatus");
+      const setStatus = (message) => {
+        if (!copyStatus) return;
+        copyStatus.textContent = message;
+        if (message) {
+          setTimeout(() => {
+            copyStatus.textContent = "";
+          }, 2000);
+        }
+      };
+      if (copyButton && copyText) {
+        copyButton.addEventListener("click", async () => {
+          const text = copyText.textContent.trim();
+          try {
+            await navigator.clipboard.writeText(text);
+            setStatus("Copied");
+            return;
+          } catch (err) {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "absolute";
+            textarea.style.left = "-9999px";
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+              document.execCommand("copy");
+              setStatus("Copied");
+            } catch (err2) {
+              setStatus("Copy failed");
+            }
+            document.body.removeChild(textarea);
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Markdown Viewer</title>
+  <link rel="stylesheet" href="style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="index.html">Home</a>
+      <a class="nav-link nav-process" href="process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4" id="docTitle">Document Viewer</h1>
+        <p class="muted small" id="docPath">Select a document to view.</p>
+      </div>
+      <div class="badges">
+        <a class="btn" id="rawLink" href="#">Open Raw</a>
+      </div>
+    </header>
+
+    <section class="card">
+      <div id="docBody" class="md">
+        <p class="muted small">No document loaded.</p>
+      </div>
+    </section>
+  </div>
+  <script src="assets/markdown.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const file = params.get("file");
+    const docTitle = document.getElementById("docTitle");
+    const docPath = document.getElementById("docPath");
+    const rawLink = document.getElementById("rawLink");
+    const body = document.getElementById("docBody");
+
+    if (file) {
+      const resolved = new URL(file, window.location.href).href;
+      const name = file.split("/").pop();
+      docTitle.textContent = name ? name : "Document";
+      docPath.textContent = resolved;
+      rawLink.setAttribute("href", resolved);
+      if (window.Markdown && window.Markdown.load) {
+        window.Markdown.load(body, resolved);
+      }
+    } else {
+      rawLink.setAttribute("href", "#");
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stage Action (reporestructure_phase02_stage_bco1_migration_action.md)</title>
+  <link rel="stylesheet" href="../../../../../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../../../../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../../../../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../../../../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../../../../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Stage Action (reporestructure_phase02_stage_bco1_migration_action.md)</h1>
+        <p class="muted small">AI_first/projects/reporestructure/phases/phase02/actions/reporestructure_phase02_stage_bco1_migration_action.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../../../../../projects/reporestructure/phases/phase02/actions/reporestructure_phase02_stage_bco1_migration_action.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Stage Action (reporestructure_phase02_stage_bco1_migration_action.md)</h1>
+<ul>
+<li>**Phase/Stage:** Phase 02 — BCO1 Migration &amp; Archive (bco1_migration).</li>
+<li>**Objective:** Move the initial BCO1 Python program and required support into the new structure; archive legacy content.</li>
+<li>**Scope:** In: identify BCO1 entry point, dependencies, datasets/assets; migrate and document; Out: refactors or performance tuning.</li>
+<li>**Acceptance:** BCO1 runs from new structure; legacy code archived; DoD referenced.</li>
+<li>**Dependencies/data:** <code>AI_first/projects/reporestructure/phases/phase01/</code>, <code>AI_first/docs/process.md</code>.</li>
+<li>**Outputs:** Migrated BCO1 code path, archive location, updated run notes.</li>
+<li>**Definition of Done:** Persona notes filled, DoD checklist referenced, validation steps recorded.</li>
+</ul>
+<h2>Personas (record outputs; use <code>AI_first/docs/templates/review_checklists.md</code>)</h2>
+<ul>
+<li>Project/Process Manager:</li>
+<li>Developer:</li>
+<li>QA Lead:</li>
+<li>Optional personas (Product Manager, Repository Steward, Docs Expert, UI/Accessibility, Bug Triage, Automation/Tooling, Architect, Security, Ops/Observability, Performance/Cost, DBA):</li>
+</ul>
+<h2>Plan</h2>
+<ul>
+<li>Inventory required files and dependencies for BCO1.</li>
+<li>Move code/data into new structure and document paths.</li>
+<li>Archive remaining code and record rationale.</li>
+</ul>
+<h2>Execution notes</h2>
+<ul>
+<li>Migration executed:</li>
+<li>Moved <code>python_scripts/BCO-Demo1.py</code> -&gt; <code>src/starmaps/bco1.py</code>.</li>
+<li>Added runner <code>scripts/run_bco1.py</code> (imports <code>starmaps.bco1</code>).</li>
+<li>Moved dataset <code>datasets/updated_merged_star_exo_data.json</code> -&gt; <code>data/processed/updated_merged_star_exo_data.json</code>.</li>
+<li>Updated BCO1 dataset paths to use <code>data/processed/</code> and repo-root resolution.</li>
+<li>Archived legacy demo: <code>python_scripts/BCO-Demo2.py</code> -&gt; <code>archive/legacy_python_scripts/BCO-Demo2.py</code>.</li>
+<li>Standardized output location: <code>assets/images/generated/</code> (directory created).</li>
+<li>Fixed import-time <code>pygame.quit()</code> causing font module errors; cleanup now happens at end of <code>main()</code>.</li>
+<li>Documented canonical run command in <code>README.md</code> (<code>python3 scripts/run_bco1.py</code>).</li>
+<li>Inventory (BCO1 migration targets):</li>
+<li><code>scripts/</code>:</li>
+<li><code>python_scripts/BCO-Demo1.py</code> -&gt; <code>scripts/run_bco1.py</code> (thin CLI wrapper).</li>
+<li><code>src/</code>:</li>
+<li><code>python_scripts/BCO-Demo1.py</code> -&gt; <code>src/starmaps/bco1.py</code> (core module with <code>main()</code>).</li>
+<li><code>data/processed/</code>:</li>
+<li><code>datasets/updated_merged_star_exo_data.json</code> (primary dataset).</li>
+<li><code>datasets/star_database_colors.json</code> (legacy fallback; optional).</li>
+<li><code>assets/images/</code>:</li>
+<li><code>saved_images/</code> output directory (rename/move; consider <code>assets/images/generated/</code>).</li>
+<li><code>archive/legacy_python_scripts/</code>:</li>
+<li><code>python_scripts/BCO-Demo2.py</code> (archive; not migrated).</li>
+</ul>
+<h2>Validation</h2>
+<ul>
+<li>Pending.</li>
+</ul>
+<h2>Documentation updates</h2>
+<ul>
+<li>Pending.</li>
+</ul>
+<h2>Issues &amp; lessons</h2>
+<ul>
+<li>Pending.</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Detail — bugmgmt</title>
+  <link rel="stylesheet" href="style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="index.html">Home</a>
+      <a class="nav-link nav-process" href="process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">bugmgmt</h1>
+        <p class="muted small">Comprehensive bug management system for this repository.</p>
+      </div>
+    </header>
+
+    <div class="summary">
+      <div class="summary-card"><div class="muted small">Phases</div><div class="h6">1</div></div>
+      <div class="summary-card"><div class="muted small">Open Bugs</div><div class="h6">0</div></div>
+      <div class="summary-card"><div class="muted small">Status</div><div class="h6">Complete</div></div>
+    </div>
+
+    <section class="card">
+      <details class="block">
+        <summary class="h4">Project Summary</summary>
+        <ul class="muted small">
+          <li><strong>Project:</strong> bugmgmt</li>
+          <li><strong>Purpose:</strong> Develop a comprehensive bug management system for projects going forward.</li>
+          <li><strong>Current Goal:</strong> Phase 01 complete; maintain workflow, exports, and UI.</li>
+          <li><strong>Environment:</strong> Docs + optional Python for Bug Management exports; offline.</li>
+          <li><strong>Constraints:</strong> Keep PII-free; deterministic outputs; local assets only.</li>
+          <li><strong>Consumers:</strong> Project teams using this repo to track and review bugs.</li>
+          <li><strong>Status:</strong> Complete</li>
+          <li><strong>Owner:</strong> Paul Doyle</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Phase History</h2>
+      <div class="table-wrap">
+        <table class="issues">
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- PHASE_ROWS_START -->
+            <tr data-phase="Phase 01 — Foundation"
+                data-phase-def-id="phase01-def"
+                data-action-plan-id="phase01-plan"
+                data-stage-action-id="phase01-action"
+                tabindex="0" role="button" aria-label="View Phase 01 details">
+              <td>Phase 01 — Foundation</td>
+              <td><span class="badge status-closed">Complete</span></td>
+              <td>2025-12-22</td>
+            </tr>
+<!-- PHASE_ROWS_END -->
+          </tbody>
+        </table>
+      </div>
+      <p class="filter-hint">Update this table as phases progress or close.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Phase Details</h2>
+      <p class="muted small" id="phaseDetailTitle">Select a phase to review the summary.</p>
+      <div class="phase-detail" id="phaseDetail">
+        <div class="muted small">No phase selected.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Issue History</h2>
+      <div class="table-wrap">
+        <table class="issues">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Status</th>
+              <th>Summary</th>
+              <th>Links</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>BMG-2025-12-002</td>
+              <td><span class="badge status-closed">Closed</span></td>
+              <td>No per-issue detail view on click in BugMgmt UI</td>
+              <td><a href="bugmgmt_issues.html">View in Bug Management</a></td>
+            </tr>
+            <tr>
+              <td>BMG-2025-12-001</td>
+              <td><span class="badge status-closed">Closed</span></td>
+              <td>Details column does not display the correct details in the BugMgmt UI</td>
+              <td><a href="bugmgmt_issues.html">View in Bug Management</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PHASE_TEMPLATES_START -->
+    <template id="phase01-def">
+      <ul class="muted small"><li><strong>Objective:</strong> Define the BugMgmt workflow, data schema, and UI expectations.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-22.</li><li><strong>Scope:</strong> In: issue fields, status/severity rules, export flow, and UI table behavior; Out: integrations or external services.</li><li><strong>Definition of completion:</strong> Phase action plan and at least one stage action exist with persona notes and DoD references.</li><li><strong>Stages:</strong></li><li>Foundation stage → <code>AI_first/projects/bugmgmt/phases/phase01/actions/bugmgmt_phase01_stage_foundation_action.md</code></li><li><strong>Dependencies:</strong> None.</li><li><strong>Risks/assumptions:</strong> Keep scope focused; remain PII-free.</li><li><strong>Links:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/bugmgmt/project_summary_bugmgmt.md</code></li></ul>
+    </template>
+    <template id="phase01-plan">
+      <ul class="muted small"><li><strong>Phase:</strong> see <code>AI_first/projects/bugmgmt/phases/phase01/phase_definition.md</code>.</li><li><strong>Stage list:</strong></li><li>Foundation stage → <code>AI_first/projects/bugmgmt/phases/phase01/actions/bugmgmt_phase01_stage_foundation_action.md</code></li><li><strong>Objective:</strong> Establish the baseline BugMgmt workflow, schema, and UI expectations.</li><li><strong>Status:</strong> Complete.</li><li><strong>Completed:</strong> 2025-12-22.</li><li><strong>Scope/files:</strong> In: stage action doc(s); Out: integrations or external tooling.</li><li><strong>Dependencies:</strong> None.</li><li><strong>Risks/assumptions:</strong> Keep the initial stage actionable and small.</li><li><strong>Persona actions:</strong> Default Project Creator/Owner → Project/Process Manager → Developer → QA Lead; add optional personas as needed.</li><li><strong>Validation:</strong> Stage action file exists and references review checklists.</li><li><strong>Rollback:</strong> Revert phase documents if scope changes.</li><li><strong>Ready checklist:</strong> Templates available.</li><li><strong>Done checklist:</strong> Stage action populated with persona notes.</li></ul>
+    </template>
+    <template id="phase01-action">
+      <ul class="muted small"><li><strong>Phase/Stage:</strong> Phase 01 — Foundation.</li><li><strong>Objective:</strong> Define BugMgmt workflows, issue fields, and UI expectations.</li><li><strong>Scope:</strong> In: schema and workflow docs, UI behavior notes; Out: integrations.</li><li><strong>Acceptance:</strong> Persona notes recorded; schema/workflow expectations documented; DoD referenced.</li><li><strong>Dependencies/data:</strong> <code>AI_first/bugmgmt/issues/issues.jsonl</code>, <code>AI_first/scripts/issues.py</code>, <code>AI_first/ui/bugmgmt_issues.html</code>.</li><li><strong>Outputs:</strong> Updated phase/stage docs and any related process updates.</li><li><strong>Definition of Done:</strong> Persona notes filled, DoD checklist referenced, validation steps recorded.</li></ul>
+    </template>
+<!-- PHASE_TEMPLATES_END -->
+
+  </div>
+  <script>
+    const detail = document.getElementById("phaseDetail");
+    const detailTitle = document.getElementById("phaseDetailTitle");
+    const getTemplate = (id) => {
+      if (!id) return '<div class="muted small">No summary available.</div>';
+      const node = document.getElementById(id);
+      return node ? node.innerHTML.trim() : '<div class="muted small">No summary available.</div>';
+    };
+    const renderDetails = (row) => {
+      if (!row) return;
+      const phase = row.dataset.phase || "Phase Details";
+      const phaseDef = getTemplate(row.dataset.phaseDefId);
+      const actionPlan = getTemplate(row.dataset.actionPlanId);
+      const stageAction = getTemplate(row.dataset.stageActionId);
+      if (detailTitle) detailTitle.textContent = phase;
+      detail.innerHTML = `
+        <div class="details-grid">
+          <div class="detail-item">
+            <div class="detail-title">Phase Definition</div>
+            ${phaseDef}
+          </div>
+          <div class="detail-item">
+            <div class="detail-title">Action Plan</div>
+            ${actionPlan}
+          </div>
+          <div class="detail-item">
+            <div class="detail-title">Stage Action</div>
+            ${stageAction}
+          </div>
+        </div>
+      `;
+    };
+    document.querySelectorAll("tr[data-phase]").forEach((row) => {
+      row.addEventListener("click", (evt) => {
+        if (evt.target.closest("a")) return;
+        renderDetails(row);
+      });
+      row.addEventListener("keydown", (evt) => {
+        if (evt.target.closest("a")) return;
+        if (evt.key !== "Enter" && evt.key !== " ") return;
+        renderDetails(row);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Personas (Template)</title>
+  <link rel="stylesheet" href="../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Personas (Template)</h1>
+        <p class="muted small">AI_first/docs/project_wide_docs/personas.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../docs/project_wide_docs/personas.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Personas (Template)</h1>
+<p>Use these prompts when reviewing project phases or change proposals. Primary personas are expected for most work; optional personas are used only when the scope warrants it. Each persona should produce concrete outputs in this repo.</p>
+<h2>Primary Personas</h2>
+<h3>Project Creator/Owner</h3>
+<ul>
+<li>Purpose: initialize the template for a new repo and project.</li>
+<li>When to use: first-time setup, new project creation.</li>
+<li>Inputs: desired project name, purpose, owner, prefix.</li>
+<li>Outputs: project name/purpose, phase list, files to create/update (projectplan, project summary, phases).</li>
+<li>Prompt: &quot;Act as Project Creator/Owner. Confirm project name, purpose, owner, prefix, and initial phases to create.&quot;</li>
+</ul>
+<h3>Project/Process Manager</h3>
+<ul>
+<li>Purpose: clarify phase/stage, next steps, owners, risks, handoffs.</li>
+<li>When to use: weekly updates, phase transitions.</li>
+<li>Inputs: <code>AI_first/docs/projectplan.md</code>, project phase docs.</li>
+<li>Outputs: next actions, dates, owners, dependency risks.</li>
+<li>Prompt: &quot;Act as Project/Process Manager. List next steps, owners, risks, and handoffs.&quot;</li>
+</ul>
+<h3>Product Manager</h3>
+<ul>
+<li>Purpose: define acceptance criteria and scope boundaries.</li>
+<li>When to use: feature scope, phase planning.</li>
+<li>Inputs: project summary, action plan, user docs.</li>
+<li>Outputs: acceptance criteria, in/out of scope, open questions.</li>
+<li>Prompt: &quot;Act as Product Manager. Provide acceptance criteria and scope boundaries.&quot;</li>
+</ul>
+<h3>Repository Steward</h3>
+<ul>
+<li>Purpose: protect the template structure and AI_first/project separation.</li>
+<li>When to use: repo restructuring, onboarding, or new project creation.</li>
+<li>Inputs: repo layout, README, AI_first docs.</li>
+<li>Outputs: structure changes, path decisions, README updates.</li>
+<li>Prompt: &quot;Act as Repository Steward. Ensure AI_first tooling stays separate from product work.&quot;</li>
+</ul>
+<h3>Developer</h3>
+<ul>
+<li>Purpose: implementation notes and technical constraints.</li>
+<li>When to use: any code/script/UI change.</li>
+<li>Inputs: affected files and scripts.</li>
+<li>Outputs: design notes, risks, tech debt, logging/telemetry needs.</li>
+<li>Prompt: &quot;Act as Developer. Summarize implementation risks and needed changes.&quot;</li>
+</ul>
+<h3>QA Lead</h3>
+<ul>
+<li>Purpose: identify risks, edge cases, validation signals, and regression coverage.</li>
+<li>When to use: UI or script changes, release readiness.</li>
+<li>Inputs: BugMgmt UI, PM.html, scripts.</li>
+<li>Outputs: test scenarios, pass/fail criteria, regression checklist.</li>
+<li>Prompt: &quot;Act as QA Lead. List edge cases, acceptance signals, and regression checks.&quot;</li>
+</ul>
+<h2>Optional Personas</h2>
+<h3>Product Manager</h3>
+<ul>
+<li>Purpose: define acceptance criteria and scope boundaries.</li>
+<li>When to use: feature scope, phase planning.</li>
+<li>Inputs: project summary, action plan, user docs.</li>
+<li>Outputs: acceptance criteria, in/out of scope, open questions.</li>
+<li>Prompt: &quot;Act as Product Manager. Provide acceptance criteria and scope boundaries.&quot;</li>
+</ul>
+<h3>Repository Steward</h3>
+<ul>
+<li>Purpose: protect the template structure and AI_first/project separation.</li>
+<li>When to use: repo restructuring, onboarding, or new project creation.</li>
+<li>Inputs: repo layout, README, AI_first docs.</li>
+<li>Outputs: structure changes, path decisions, README updates.</li>
+<li>Prompt: &quot;Act as Repository Steward. Ensure AI_first tooling stays separate from product work.&quot;</li>
+</ul>
+<h3>Docs Expert</h3>
+<ul>
+<li>Purpose: keep docs accurate, consistent, and linked.</li>
+<li>When to use: any process or structure change.</li>
+<li>Inputs: <code>AI_first/docs</code> and <code>AI_first/projects</code> docs.</li>
+<li>Outputs: doc updates needed, broken link fixes, clarity edits.</li>
+<li>Prompt: &quot;Act as Docs Expert. List doc updates and link fixes.&quot;</li>
+</ul>
+<h3>UI/Accessibility</h3>
+<ul>
+<li>Purpose: usability, accessibility, and style consistency checks.</li>
+<li>When to use: UI changes or new pages.</li>
+<li>Inputs: PM.html, BugMgmt UI, CSS.</li>
+<li>Outputs: UI issues, a11y fixes, style consistency notes.</li>
+<li>Prompt: &quot;Act as UI/Accessibility. Identify usability and a11y issues.&quot;</li>
+</ul>
+<h3>Bug Triage</h3>
+<ul>
+<li>Purpose: ensure issues are complete and consistent.</li>
+<li>When to use: after logging or updating bugs.</li>
+<li>Inputs: <code>AI_first/bugmgmt/issues/issues.jsonl</code>.</li>
+<li>Outputs: missing fields, invalid prefixes, owner gaps.</li>
+<li>Prompt: &quot;Act as Bug Triage. Validate IDs, required fields, and owners.&quot;</li>
+</ul>
+<h3>Automation/Tooling</h3>
+<ul>
+<li>Purpose: keep exports and rendered docs in sync.</li>
+<li>When to use: after doc or issue updates.</li>
+<li>Inputs: <code>AI_first/scripts/*.py</code>, UI exports.</li>
+<li>Outputs: required command list to refresh UI/docs.</li>
+<li>Prompt: &quot;Act as Automation/Tooling. List required commands to refresh outputs.&quot;</li>
+</ul>
+<h3>Architect</h3>
+<ul>
+<li>Purpose: cross-boundary risks and redesign needs.</li>
+<li>When to use: major structure or workflow changes.</li>
+<li>Inputs: overall workflow, scripts, UI.</li>
+<li>Outputs: architecture risks, acceptance conditions, constraints.</li>
+<li>Prompt: &quot;Act as Architect. Identify boundary risks and acceptance conditions.&quot;</li>
+</ul>
+<h3>Security</h3>
+<ul>
+<li>Purpose: threats, secrets/PII handling, and mitigations.</li>
+<li>When to use: new data flows, scripts, or exports.</li>
+<li>Inputs: scripts and data stores.</li>
+<li>Outputs: risks, mitigations, logging hygiene notes.</li>
+<li>Prompt: &quot;Act as Security. Identify threats and mitigations.&quot;</li>
+</ul>
+<h3>Ops/Observability</h3>
+<ul>
+<li>Purpose: operational readiness and monitoring.</li>
+<li>When to use: automation or workflow changes.</li>
+<li>Inputs: scripts, run steps, outputs.</li>
+<li>Outputs: runbook gaps, alerts/metrics needs, rollback notes.</li>
+<li>Prompt: &quot;Act as Ops/Observability. Identify runbook or monitoring gaps.&quot;</li>
+</ul>
+<h3>Performance/Cost</h3>
+<ul>
+<li>Purpose: perf or cost risks.</li>
+<li>When to use: only if scale or cost matters.</li>
+<li>Inputs: data size, runtime steps.</li>
+<li>Outputs: benchmarks and acceptance thresholds.</li>
+<li>Prompt: &quot;Act as Performance/Cost. Note perf risks and thresholds.&quot;</li>
+</ul>
+<h3>DBA</h3>
+<ul>
+<li>Purpose: data integrity and schema impacts.</li>
+<li>When to use: only if a database is introduced.</li>
+<li>Inputs: data model, migrations.</li>
+<li>Outputs: integrity risks, backup/rollback needs.</li>
+<li>Prompt: &quot;Act as DBA. Note schema and integrity risks.&quot;</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+use piston_window::*;
+use serde::Deserialize;
+use std::fs;
+
+// Define a structure to represent each star's coordinates
+#[derive(Deserialize)]
+struct Star {
+    x: f64,
+    y: f64,
+    z: f64,
+}
+
+fn main() {
+    // Load the JSON file and parse it into a Vec<Star>
+    let file_content = fs::read_to_string("../datasets/updated_merged_star_exo_data.json").expect("Could not read JSON file");
+    let stars: Vec<Star> = serde_json::from_str(&file_content).expect("Could not parse JSON");
+
+    // Set up the window
+    let (width, height) = (800, 800);
+    let mut window: PistonWindow = WindowSettings::new("Star Field", [width, height])
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
+
+    // Scaling factor to fit the star field within the window dimensions
+    let scale = 0.1;
+
+    // Render loop
+    while let Some(event) = window.next() {
+        window.draw_2d(&event, |context, graphics, _| {
+            clear([0.0, 0.0, 0.0, 1.0], graphics);
+
+            // Draw each star as a pixel
+            for star in &stars {
+                let screen_x = (width as f64 / 2.0) + (star.x * scale);
+                let screen_y = (height as f64 / 2.0) - (star.y * scale);
+                
+                rectangle(
+                    [1.0, 1.0, 1.0, 1.0], // Color: white
+                    [screen_x, screen_y, 1.0, 1.0], // Position and size of the pixel
+                    context.transform,
+                    graphics,
+                );
+            }
+        });
+    }
+}

@@ -1,0 +1,133 @@
+{
+    "I/239 HIP Main Catalog": {
+        "filename": "I_239_hip_main_catalog.csv",
+        "columns": [
+            {"name": "HIP", "data_type": "int64", "format": "N/A", "description": "Hipparcos catalog identifier"},
+            {"name": "RAhms", "data_type": "object", "format": "hours:minutes:seconds", "description": "Right Ascension in HMS"},
+            {"name": "DEdms", "data_type": "object", "format": "degrees:minutes:seconds", "description": "Declination in DMS"},
+            {"name": "Vmag", "data_type": "float64", "format": "N/A", "description": "Visual magnitude"},
+            {"name": "RAICRS", "data_type": "float64", "format": "degrees", "description": "ICRS Right Ascension"},
+            {"name": "DEICRS", "data_type": "float64", "format": "degrees", "description": "ICRS Declination"},
+            {"name": "Plx", "data_type": "float64", "format": "milliarcseconds", "description": "Parallax in milliarcseconds"},
+            {"name": "pmRA", "data_type": "float64", "format": "milliarcseconds/year", "description": "Proper motion in RA"},
+            {"name": "pmDE", "data_type": "float64", "format": "milliarcseconds/year", "description": "Proper motion in Dec"},
+            {"name": "e_Plx", "data_type": "float64", "format": "milliarcseconds", "description": "Error in parallax"},
+            {"name": "B-V", "data_type": "float64", "format": "N/A", "description": "Color index (B-V)"},
+            {"name": "Notes", "data_type": "object", "format": "N/A", "description": "Additional notes"},
+            {"name": "_RA.icrs", "data_type": "float64", "format": "degrees", "description": "ICRS Right Ascension"},
+            {"name": "_DE.icrs", "data_type": "float64", "format": "degrees", "description": "ICRS Declination"}
+        ]
+    },
+    "V/50 Catalog": {
+        "filename": "V_50_catalog.csv",
+        "columns": [
+            {"name": "HR", "data_type": "int64", "format": "N/A", "description": "Harvard Revised catalog identifier"},
+            {"name": "Name", "data_type": "object", "format": "N/A", "description": "Star name or identifier"},
+            {"name": "HD", "data_type": "int64", "format": "N/A", "description": "Henry Draper catalog number"},
+            {"name": "ADS", "data_type": "float64", "format": "N/A", "description": "Aitken Double Star catalog identifier"},
+            {"name": "VarID", "data_type": "object", "format": "N/A", "description": "Variable star identifier"},
+            {"name": "RAJ2000", "data_type": "object", "format": "degrees", "description": "Right Ascension (J2000)"},
+            {"name": "DEJ2000", "data_type": "object", "format": "degrees", "description": "Declination (J2000)"},
+            {"name": "Vmag", "data_type": "float64", "format": "N/A", "description": "Visual magnitude"},
+            {"name": "B-V", "data_type": "float64", "format": "N/A", "description": "Color index (B-V)"},
+            {"name": "SpType", "data_type": "object", "format": "N/A", "description": "Spectral type"},
+            {"name": "NoteFlag", "data_type": "object", "format": "N/A", "description": "Flag for additional notes"}
+        ]
+    },
+    "I/239 TYC Main Catalog": {
+        "filename": "I_239_tyc_main_catalog.csv",
+        "columns": [
+            {"name": "TYC", "data_type": "object", "format": "N/A", "description": "Tycho catalog identifier"},
+            {"name": "RAhms", "data_type": "object", "format": "hours:minutes:seconds", "description": "Right Ascension in HMS"},
+            {"name": "DEdms", "data_type": "object", "format": "degrees:minutes:seconds", "description": "Declination in DMS"},
+            {"name": "Vmag", "data_type": "float64", "format": "N/A", "description": "Visual magnitude"},
+            {"name": "RAICRS", "data_type": "float64", "format": "degrees", "description": "ICRS Right Ascension"},
+            {"name": "DEICRS", "data_type": "float64", "format": "degrees", "description": "ICRS Declination"},
+            {"name": "BTmag", "data_type": "float64", "format": "N/A", "description": "Blue magnitude"},
+            {"name": "VTmag", "data_type": "float64", "format": "N/A", "description": "Visual Tycho magnitude"},
+            {"name": "B-V", "data_type": "float64", "format": "N/A", "description": "Color index (B-V)"},
+            {"name": "_RA.icrs", "data_type": "float64", "format": "degrees", "description": "ICRS Right Ascension"},
+            {"name": "_DE.icrs", "data_type": "float64", "format": "degrees", "description": "ICRS Declination"}
+        ]
+    },
+    "II/336 2MASS All-Sky Catalog": {
+        "filename": "II_336_catalog.csv",
+        "columns": [
+            {"name": "recno", "data_type": "int64", "format": "N/A", "description": "Record number"},
+            {"name": "RAJ2000", "data_type": "float64", "format": "degrees", "description": "Right Ascension (J2000)"},
+            {"name": "DEJ2000", "data_type": "float64", "format": "degrees", "description": "Declination (J2000)"},
+            {"name": "e_RAJ2000", "data_type": "float64", "format": "degrees", "description": "Error in RA (J2000)"},
+            {"name": "e_DEJ2000", "data_type": "float64", "format": "degrees", "description": "Error in Dec (J2000)"},
+            {"name": "Field", "data_type": "int64", "format": "N/A", "description": "Field number"},
+            {"name": "nobs", "data_type": "int64", "format": "N/A", "description": "Number of observations"},
+            {"name": "mobs", "data_type": "int64", "format": "N/A", "description": "Mean number of observations"},
+            {"name": "B-V", "data_type": "float64", "format": "N/A", "description": "Color index (B-V)"},
+            {"name": "e_B-V", "data_type": "float64", "format": "N/A", "description": "Error in color index (B-V)"},
+            {"name": "Vmag", "data_type": "float64", "format": "N/A", "description": "Visual magnitude"},
+            {"name": "e_Vmag", "data_type": "float64", "format": "N/A", "description": "Error in visual magnitude"},
+            {"name": "Bmag", "data_type": "float64", "format": "N/A", "description": "Blue magnitude"},
+            {"name": "e_Bmag", "data_type": "float64", "format": "N/A", "description": "Error in blue magnitude"},
+            {"name": "g_mag", "data_type": "float64", "format": "N/A", "description": "Green magnitude"},
+            {"name": "e_g_mag", "data_type": "float64", "format": "N/A", "description": "Error in green magnitude"},
+            {"name": "r_mag", "data_type": "float64", "format": "N/A", "description": "Red magnitude"},
+            {"name": "e_r_mag", "data_type": "float64", "format": "N/A", "description": "Error in red magnitude"},
+            {"name": "i_mag", "data_type": "float64", "format": "N/A", "description": "Infrared magnitude"},
+            {"name": "e_i_mag", "data_type": "float64", "format": "N/A", "description": "Error in infrared magnitude"}
+        ]
+    },
+    "I/259 TYC2 Catalog": {
+        "filename": "I_259_tyc2_catalog.csv",
+        "columns": [
+            {"name": "TYC1", "data_type": "int64", "format": "N/A", "description": "Tycho catalog identifier part 1"},
+            {"name": "TYC2", "data_type": "int64", "format": "N/A", "description": "Tycho catalog identifier part 2"},
+            {"name": "TYC3", "data_type": "int64", "format": "N/A", "description": "Tycho catalog identifier part 3"},
+            {"name": "pmRA", "data_type": "float64", "format": "milliarcseconds/year", "description": "Proper motion in RA"},
+            {"name": "pmDE", "data_type": "float64", "format": "milliarcseconds/year", "description": "Proper motion in Dec"},
+            {"name": "BTmag", "data_type": "float64", "format": "N/A", "description": "Blue magnitude"},
+            {"name": "VTmag", "data_type": "float64", "format": "N/A", "description": "Visual Tycho magnitude"},
+            {"name": "HIP", "data_type": "float64", "format": "N/A", "description": "Hipparcos identifier"},
+            {"name": "RA_ICRS_", "data_type": "float64", "format": "degrees", "description": "ICRS Right Ascension"},
+            {"name": "DE_ICRS_", "data_type": "float64", "format": "degrees", "description": "ICRS Declination"}
+        ]
+    },
+    "I/311 HIP2 Catalog": {
+        "filename": "I_311_hip2_catalog.csv",
+        "columns": [
+            {"name": "HIP", "data_type": "int64", "format": "N/A", "description": "Hipparcos catalog identifier"},
+            {"name": "n_HIP", "data_type": "object", "format": "N/A", "description": "Additional Hipparcos identifier notes"},
+            {"name": "Sn", "data_type": "int64", "format": "N/A", "description": "Source identifier"},
+            {"name": "So", "data_type": "int64", "format": "N/A", "description": "Other source identifier"},
+            {"name": "RArad", "data_type": "float64", "format": "radians", "description": "Right Ascension in radians"},
+            {"name": "DErad", "data_type": "float64", "format": "radians", "description": "Declination in radians"},
+            {"name": "Plx", "data_type": "float64", "format": "milliarcseconds", "description": "Parallax in milliarcseconds"},
+            {"name": "e_Plx", "data_type": "float64", "format": "milliarcseconds", "description": "Error in parallax"},
+            {"name": "pmRA", "data_type": "float64", "format": "milliarcseconds/year", "description": "Proper motion in RA"},
+            {"name": "pmDE", "data_type": "float64", "format": "milliarcseconds/year", "description": "Proper motion in Dec"},
+            {"name": "Hpmag", "data_type": "float64", "format": "N/A", "description": "Hipparcos visual magnitude"},
+            {"name": "B-V", "data_type": "float64", "format": "N/A", "description": "Color index (B-V)"},
+            {"name": "HIP1", "data_type": "object", "format": "N/A", "description": "Alternate Hipparcos identifier"}
+        ]
+    },
+    "ATHYG v32 Stellar Database": {
+        "filename": "athyg_v32.csv",
+        "columns": [
+            {"name": "id", "data_type": "int64", "format": "N/A", "description": "Stellar database identifier"},
+            {"name": "tyc", "data_type": "object", "format": "N/A", "description": "Tycho catalog identifier"},
+            {"name": "gaia", "data_type": "float64", "format": "N/A", "description": "Gaia identifier"},
+            {"name": "hyg", "data_type": "float64", "format": "N/A", "description": "HYG identifier"},
+            {"name": "hip", "data_type": "float64", "format": "N/A", "description": "Hipparcos identifier"},
+            {"name": "hd", "data_type": "float64", "format": "N/A", "description": "Henry Draper catalog number"},
+            {"name": "ra", "data_type": "float64", "format": "degrees", "description": "Right Ascension"},
+            {"name": "dec", "data_type": "float64", "format": "degrees", "description": "Declination"}
+        ]
+    },
+    "III/135 Bright Star Catalog": {
+        "filename": "III_135_catalog.csv",
+        "columns": [
+            {"name": "HD", "data_type": "int64", "format": "N/A", "description": "Henry Draper catalog number"},
+            {"name": "RAB1900", "data_type": "object", "format": "degrees", "description": "RA for B1900"},
+            {"name": "DEB1900", "data_type": "object", "format": "degrees", "description": "Declination for B1900"}
+        ]
+    }
+}
+

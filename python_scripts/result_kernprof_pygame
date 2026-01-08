@@ -1,0 +1,68 @@
+Wrote profile results to test_pygame.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 1.31162 s
+File: .\test_pygame.py
+Function: main at line 26
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    26                                           @profile
+    27                                           def main():
+    28                                               global screen, screen_width, screen_height
+    29         1          1.9      1.9      0.0      running = True
+    30         1          7.8      7.8      0.0      clock = pygame.time.Clock()
+    31
+    32                                               # Star parameters
+    33         1          0.4      0.4      0.0      star_radius = 10
+    34         1          0.9      0.9      0.0      star_diameter = star_radius * 2
+    35         1          1.2      1.2      0.0      stars_per_row = screen_width // star_diameter
+    36         1          0.7      0.7      0.0      stars_per_column = screen_height // star_diameter
+    37         1          0.4      0.4      0.0      total_stars = 9003
+    38
+    39                                               # Precompute star positions
+    40         1          0.6      0.6      0.0      star_positions = []
+    41      3025        918.8      0.3      0.1      for i in range(total_stars):
+    42      3025        781.2      0.3      0.1          row = i // stars_per_row
+    43      3025       6944.7      2.3      0.5          col = i % stars_per_row
+    44      3025       1053.3      0.3      0.1          x = col * star_diameter + star_radius
+    45      3025        817.1      0.3      0.1          y = row * star_diameter + star_radius
+    46      3025        958.5      0.3      0.1          if y + star_radius > screen_height:
+    47         1          2.2      2.2      0.0              break
+    48      3024       1321.2      0.4      0.1          star_positions.append((x, y))
+    49
+    50                                               # Create star surface
+    51         1         56.5     56.5      0.0      star_surface = create_star_surface(WHITE, star_radius)
+    52
+    53        54        471.2      8.7      0.0      while running:
+    54        72     229686.9   3190.1     17.5          for event in pygame.event.get():
+    55        19         74.2      3.9      0.0              if event.type == pygame.QUIT:
+    56         1          5.0      5.0      0.0                  running = False
+    57        18         29.4      1.6      0.0              elif event.type == pygame.VIDEORESIZE:
+    58                                                           screen_width, screen_height = event.w, event.h
+    59                                                           screen = pygame.display.set_mode((screen_width, screen_height), pygame.RESIZABLE)
+    60                                                           stars_per_row = screen_width // star_diameter
+    61                                                           stars_per_column = screen_height // star_diameter
+    62                                                           star_positions = []
+    63                                                           for i in range(total_stars):
+    64                                                               row = i // stars_per_row
+    65                                                               col = i % stars_per_row
+    66                                                               x = col * star_diameter + star_radius
+    67                                                               y = row * star_diameter + star_radius
+    68                                                               if y + star_radius > screen_height:
+    69                                                                   break
+    70                                                               star_positions.append((x, y))
+    71
+    72                                                   # Fill the screen with black
+    73        53       8808.3    166.2      0.7          screen.fill(BLACK)
+    74
+    75                                                   # Draw stars using blit
+    76    160325     192632.8      1.2     14.7          for pos in star_positions:
+    77    160272     287389.2      1.8     21.9              screen.blit(star_surface, (pos[0] - star_radius, pos[1] - star_radius))
+    78
+    79                                                   # Update the display
+    80        53      33656.7    635.0      2.6          pygame.display.flip()
+    81        53     282733.3   5334.6     21.6          clock.tick(60)
+    82
+    83         1     263240.2 263240.2     20.1      pygame.quit()
+    84         1         22.1     22.1      0.0      sys.exit()

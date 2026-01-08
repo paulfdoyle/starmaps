@@ -1,0 +1,2032 @@
+import pygame
+from gtts import gTTS
+import os
+import sys
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import random
+from datetime import datetime, timedelta
+from skyfield.api import load, wgs84, utc, Star
+from skyfield.data import stellarium
+from pytz import timezone
+from skyfield.projections import build_stereographic_projection
+import math
+import multiprocessing
+from window_functions import create_and_run_window, draw_window1, draw_window2
+from math import *
+from pyquaternion import Quaternion
+import pygame.gfxdraw
+import warnings
+from numba import jit
+from numba import njit, prange
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import openai
+from openai import OpenAI
+from openai.types.chat.chat_completion import Choice as CompletionChoice
+from dataclasses import dataclass
+import http.client
+from urllib.parse import urlencode
+from dotenv import load_dotenv
+from astroquery.simbad import Simbad
+from playsound import playsound
+
+warnings.filterwarnings("ignore")
+load_dotenv()
+print ("environemnt loaded")
+
+
+
+output_dir = "saved_images/"
+
+global_timescale = load.timescale()
+
+try:
+    profile  # exists when kernprof is running the script
+except NameError:
+    def profile(func):
+        return func  # Return the function unchanged if not profiling
+
+canvas_width, canvas_height = 3000, 3000  # Large off-screen canvas size
+screen_width, screen_height = 1000,1000     # default size
+BF = 2.512  # brightness factor Created a bigger size difference between stars on the screen
+BRM6 = 4  # Base radius for magnitude 6 stars, this will control if mag 6 is visible.
+FPS = 60  # Frames per second
+JSON_FILE = '../datasets/star_database_colors.json'  # Global variable to hold name of the file to read for star data
+ScreenScaler = 1
+
+# These index constants are assignment order dependent. Change with caution
+class SIndex:
+    HIP = 0
+    MAGNITUDE = 1
+    RA_DEGREES = 2
+    DEC_DEGREES = 3
+    PARALLAX_MAS = 4
+    RA_MAS_PER_YEAR = 5
+    DEC_MAS_PER_YEAR = 6
+    DISTANCE_PARSECS = 7
+    ABS_MAG = 8
+    COLOR_K_R = 9
+    COLOR_K_G = 10
+    COLOR_K_B = 11
+    Dx = 12
+    Dy = 13
+    Dz = 14
+    GLON = 15
+    GLAT = 16
+    STAR_TYPE = 17
+    RAHRS = 18
+    EPOC = 19
+
+
+class CIndex:
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+    GREEN = (0, 255, 0)
+    GREEN2 = (0, 225, 0)
+    GREEN3 = (0, 195, 0)
+    RED = (255, 0, 0)
+    CYAN = (0, 255, 255)
+    LIGHTCYAN = (178, 235, 242)
+
+    GREY = (128, 128, 128)
+    YELLOW = (255, 255, 0)
+    BLUE = (0, 0, 255)
+    ORANGE = (255, 165, 0)
+    NAVY = (0, 0, 128)
+
+
+class FIndex:
+    VERYLARGE = 200
+    LARGE = 150
+    MEDIUM = 75
+    SMALL = 50
+    VERYSMALL = 25
+
+
+class PIndex:
+    P1 = 0
+    P5 = 1
+    P10 = 2
+    P50 = 3
+    P100 = 4
+    P200 = 5
+    P400 = 6
+    P800 = 7
+    P1600 = 8
+
+
+# Define the RGB values for different types of stars
+class StarColourIndex:
+    O_Type = (140, 176, 255)  # Blue
+    B_Type = (170, 191, 255)  # Blue-White
+    A_Type = (202, 215, 255)  # White
+    F_Type = (248, 247, 255)  # Yellow-White
+    G_Type = (255, 233, 12)  # Yellow
+    K_Type = (255, 165, 12)  # Orange
+    M_Type = (255, 100, 12)  # Red
+
+
+# List of star types and their RGB values
+star_list = [
+    StarColourIndex.O_Type,
+    StarColourIndex.B_Type,
+    StarColourIndex.A_Type,
+    StarColourIndex.F_Type,
+    StarColourIndex.G_Type,
+    StarColourIndex.K_Type,
+    StarColourIndex.M_Type,
+]
+DEFAULT_SYSTEM_MESSAGE = ('You are a scientist at a planetarium, who excels at educating the general '
+                          'the general public on astronomy. give the following facts, the star name, the distance from earth, if it has any know exoplanets,  and one interesting fact which the public might find interesting. '
+                          'Users will give you the proper name of a star and a HIP or HD reference and you will '
+                          'provide them with this information '
+                          'Keep your answers to under 70 words, dont prompt for more question')
+
+
+#DEFAULT_SYSTEM_MESSAGE = ('You are a scientist at a planetarium, who excels at educating the general '
+#                          'the general public on astronomy. give the following facts, the star name, the distance from earth, if it has any know exoplanets,  and one interesting fact which the public might find interesting. 
+#                          Start with the class of star, its distance from earth and '
+#                          'size. Mention if it is known to have exo planets. Name any works of science fiction in which it has appeared, name the most famous one, but if none then dont mention literature. '
+#                          'Users will give you the proper name of a star and a HIP or HD reference and you will '
+#                          'Keep your answers to under 200 words, dont prompt for more question')
+#3                          'provide them with this information along with an interesting Tecnical Scientific fact '
+
+
+@dataclass
+class LLMAPIResponse:
+    system_message: str
+    query: str
+    response: CompletionChoice
+
+    def __repr__(self):
+        return (f"System Message:\r\n"
+                f"===============\r\n{self.system_message}"
+                "\r\n\r\n"
+                f"Query:"
+                f"===============\r\n{self.query}"
+                "\r\n\r\n"
+                f"Response:"
+                f"===============\r\n{self.response}"
+                )
+
+
+class LLMAPIClient:
+    _client: openai.Client = None
+    _system_message: str = None
+
+    def __init__(self):
+        self._client = OpenAI()
+        self._system_message = DEFAULT_SYSTEM_MESSAGE
+
+    def get_info(self, proper_name: str) -> str:
+        completion = self._client.chat.completions.create(
+          model="gpt-4o-mini",
+          messages=[
+            {"role": "system", "content": self._system_message},
+            {"role": "user", "content": proper_name}
+          ]
+        )
+        return completion.choices[0].message.content
+    
+
+client = LLMAPIClient()
+print(os.environ.get('OPENAI_API_KEY'))
+
+def fetch_star_details(hip_id: int):
+    # Create a custom Simbad query objectggg
+    custom_simbad = Simbad()
+    # Add the required fields
+    custom_simbad.add_votable_fields('ids', 'flux(V)')
+
+    # Query the SIMBAD database for the given HIP ID
+    result = custom_simbad.query_object(f"HIP {hip_id}")
+
+    if result is None:
+        print(f"No results found for HIP ID {hip_id}")
+        return
+
+    # Extract the details
+    main_id = result['MAIN_ID'][0] if not result['MAIN_ID'].mask[0] else "N/A"
+    ids = result['IDS'][0] if not result['IDS'].mask[0] else "N/A"
+    flux_v = result['FLUX_V'][0] if not result['FLUX_V'].mask[0] else "N/A"
+
+    # Split the IDs to find HD and HR
+    hd_id = "N/A"
+    hr_id = "N/A"
+    for id_str in ids.split('|'):
+        if id_str.strip().startswith("HD"):
+            hd_id = id_str.strip()
+        if id_str.strip().startswith("HR"):
+            hr_id = id_str.strip()
+
+    print (main_id, hd_id, hr_id)
+    return main_id+" "+hd_id+ " "+hr_id
+
+
+
+class StarApparentMagIndex:
+    MagPlus6point5 = 20  # +6.5
+    MagPlus6 = 19  # +6
+    MagPlus5point5 = 18  # +5.5
+    MagPlus5 = 17  # +5
+    MagPlus4point5 = 16  # +4.5
+    MagPlus4 = 15  # +4
+    MagPlus3point5 = 14  # +3.5
+    MagPlus3 = 13  # +3
+    MagPlus2point5 = 12  # +2.5
+    MagPlus2 = 11  # +2
+    MagPlus1point5 = 10  # +1.5
+    MagPlus1 = 9  # +1
+    MagPlus0point5 = 8  # +0.5
+    MagPlus0 = 7  # 0
+    MagMinus0point5 = 6  # -0.5
+    MagMinus1 = 5  # -1
+    MagMinus1point5 = 4  # -1.5
+    MagMinus2 = 3  # -2
+    MagMinus2point5 = 2  # -2.5
+    MagMinus3 = 1  # -3
+    MagMinus3point5 = 0  # -4
+
+
+# Create a dictionary of magnitude values to indices
+mag_to_index = {
+    6.5: StarApparentMagIndex.MagPlus6point5,
+    6: StarApparentMagIndex.MagPlus6,
+    5.5: StarApparentMagIndex.MagPlus5point5,
+    5: StarApparentMagIndex.MagPlus5,
+    4.5: StarApparentMagIndex.MagPlus4point5,
+    4: StarApparentMagIndex.MagPlus4,
+    3.5: StarApparentMagIndex.MagPlus3point5,
+    3: StarApparentMagIndex.MagPlus3,
+    2.5: StarApparentMagIndex.MagPlus2point5,
+    2: StarApparentMagIndex.MagPlus2,
+    1.5: StarApparentMagIndex.MagPlus1point5,
+    1: StarApparentMagIndex.MagPlus1,
+    0.5: StarApparentMagIndex.MagPlus0point5,
+    0: StarApparentMagIndex.MagPlus0,
+    -0.5: StarApparentMagIndex.MagMinus0point5,
+    -1: StarApparentMagIndex.MagMinus1,
+    -1.5: StarApparentMagIndex.MagMinus1point5,
+    -2: StarApparentMagIndex.MagMinus2,
+    -2.5: StarApparentMagIndex.MagMinus2point5,
+    -3: StarApparentMagIndex.MagMinus3,
+    -4: StarApparentMagIndex.MagMinus3point5
+}
+
+# Create a dictionary with manually set values for each index from 0 to 20
+index_parsecs = {
+    0: 1,
+    1: 2, 
+    2: 10,
+    3: 50,
+    4: 75,
+    5: 125,
+    6: 250,
+    7: 500,
+    8: 1000,
+    9: 1500
+
+}
+key_to_scale = {
+    pygame.K_0: 0,
+    pygame.K_1: 1,
+    pygame.K_2: 2,
+    pygame.K_3: 3,
+    pygame.K_4: 4,
+    pygame.K_5: 5,
+    pygame.K_6: 6,
+    pygame.K_7: 7,
+    pygame.K_8: 8,
+    pygame.K_9: 9
+}
+
+
+def text_to_speech(text):
+    try:
+        # Create TTS object
+        tts = gTTS(text=text, lang='en')
+        # Save the audio file
+        audio_file = "temp.mp3"
+        tts.save(audio_file)
+        # Play the audio file
+        playsound(audio_file)
+        # Remove the temporary file
+        os.remove(audio_file)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+# Function to get the value using the index (key)
+def get_pasec_from_index(index):
+    return int(index_parsecs.get(index))
+
+
+# Convert the dictionary to arrays for Numba compatibility
+mags = np.array(list(mag_to_index.keys()))
+indices = np.array(list(mag_to_index.values()))
+
+@jit(nopython=True)
+def get_index_from_magnitude(magnitude):
+    """
+    Get the index for a given magnitude value based on the StarApparentMagIndex class.
+    The magnitude is mapped to the closest defined magnitude.
+
+    Parameters:
+    - magnitude (float): The magnitude value to be mapped.
+
+    Returns:
+    - int: The corresponding index.
+    """
+    # Calculate the absolute difference between the input magnitude and all known magnitudes
+    abs_diff = np.abs(mags - magnitude)
+    
+    # Find the index of the minimum difference
+    closest_index = np.argmin(abs_diff)
+    
+    # Return the corresponding index from the indices array
+    return indices[closest_index]
+
+def find_closest_star_index(rgb):
+    """Find the index of the closest star color type to the given RGB values."""
+    closest_star_index = None
+    min_distance = float('inf')
+
+    # Iterate over each star color to find the closest match
+    for index, star_rgb in enumerate(star_list):
+        distance = color_distance(rgb, star_rgb)
+        if distance < min_distance:
+            min_distance = distance
+            closest_star_index = index
+
+    # Return the index of the closest star type
+    return closest_star_index
+
+@jit(nopython=True)
+def find_closest_star_color(rgb):
+    """Find the closest star color type to the given RGB values. Function only used for testing"""
+    # Define the RGB values for different types of stars directly in the function
+    star_colors = {
+        'O-Type (Blue)': StarColourIndex.O_Type,
+        'B-Type (Blue-White)': StarColourIndex.B_Type,
+        'A-Type (White)': StarColourIndex.A_Type,
+        'F-Type (Yellow-White)': StarColourIndex.F_Type,
+        'G-Type (Yellow)': StarColourIndex.G_Type,
+        'K-Type (Orange)': StarColourIndex.K_Type,
+        'M-Type (Red)': StarColourIndex.M_Type
+    }
+
+    # Initialize variables to store the closest star type and its minimum distance
+    closest_star_type = None
+    min_distance = float('inf')
+
+    # Iterate over each star color to find the closest match
+    for star_type, star_rgb in star_colors.items():
+        distance = color_distance(rgb, star_rgb)
+        if distance < min_distance:
+            min_distance = distance
+            closest_star_type = star_type
+
+    # Return the name of the closest star type and its RGB values
+    return closest_star_type, star_colors[closest_star_type]
+
+def generate_3d_circle_points(radius, angle_degrees, zero_dimension='z'):
+    """
+    Generates 3D points around the origin (0, 0, 0) on a circle.
+    The number of points is determined by the angular separation and the specified zero dimension.
+
+    Parameters:
+    radius (float): The radius of the circle.
+    angle_degrees (float): The angular separation in degrees between points.
+    zero_dimension (str): The dimension to be zero ('x', 'y', or 'z').
+
+    Returns:
+    list of tuples: A list of 3D points (x, y, z) rounded to 3 decimal places.
+    """
+    if zero_dimension not in {'x', 'y', 'z'}:
+        raise ValueError("zero_dimension must be 'x', 'y', or 'z'")
+
+    # Generate the angles
+    angles = np.radians(np.arange(0, 360, angle_degrees))
+
+    # Compute the coordinates
+    cos_angles = np.cos(angles)
+    sin_angles = np.sin(angles)
+
+    if zero_dimension == 'z':
+        x = radius * cos_angles
+        y = radius * sin_angles
+        z = np.zeros_like(x)
+    elif zero_dimension == 'y':
+        x = radius * cos_angles
+        y = np.zeros_like(x)
+        z = radius * sin_angles
+    elif zero_dimension == 'x':
+        x = np.zeros_like(cos_angles)
+        y = radius * cos_angles
+        z = radius * sin_angles
+
+    # Combine and round the points
+    points = np.column_stack((x, y, z))
+    points = np.round(points, 3)
+
+    return points
+
+
+def color_distance(rgb1, rgb2):
+    """Calculate the Euclidean distance between two RGB colors."""
+    return sum((c1 - c2) ** 2 for c1, c2 in zip(rgb1, rgb2)) ** 0.5
+
+### Functions needed for the workflow: Galactic -> 3D -> 3D Mods -> Galactic -> RADEC
+
+#
+def galactic_to_cartesian(l, b, d):
+    """
+    Convert Galactic coordinates to Cartesian coordinates.
+    l: Galactic longitude in degrees
+    b: Galactic latitude in degrees
+    d: Distance
+    """
+    # Convert angles from degrees to radians
+    l_rad = np.radians(l)
+    b_rad = np.radians(b)
+
+    # Cartesian coordinates conversion
+    x = d * math.cos(b_rad) * math.cos(l_rad)
+    y = d * math.cos(b_rad) * math.sin(l_rad)
+    z = d * math.sin(b_rad)
+
+    return x, y, z
+
+
+# Load the data into a DataFrame then convert it to NumpyArray
+# We are reading in more data from the file than required since
+# we may find a use for it later
+def load_custom_star_data(json_file_path):
+    try:
+        print("Loading data from file")
+        required_columns = [
+            'hip', 'mag', 'ra_decdeg', 'dec_decdeg', 'plx', 'pmra', 'pmdec', 'dist', 'absmag',
+            'kR', 'kG', 'kB', 'x', 'y', 'z', "GLON", "GLAT","C"
+        ]
+        df = pd.read_json(json_file_path)
+        df = df[required_columns]
+        # print("1-->",df.iloc[0])
+
+        df.columns = (
+            'hip', 'magnitude', 'ra_degrees', 'dec_degrees', 'parallax_mas', 'ra_mas_per_year',
+            'dec_mas_per_year', 'distance_parsecs', 'absolutem', 'kR', 'kG', 'kB', '3dx', '3dy', '3dz', "GLON", "GLAT", "StarType"
+        )
+        # print("2-->",df.iloc[0])
+
+        # Remove samples with missing data to elimiate checks later
+        df = df.replace('', np.nan)
+
+        # # Identify rows with missing 'ra_degrees', 'dec_degrees', or 'magnitude' before removing them
+        # missing_values_df = df[df['ra_degrees'].isnull() | df['dec_degrees'].isnull() | df['magnitude'].isnull()]
+        # missing_hr_ids = missing_values_df['hr']
+
+        # # Save the missing HIP IDs to a text file
+        # missing_hr_ids.to_csv('../datasets/missing_stars.txt', index=False, header=False)
+
+        df.dropna(inplace=True)
+        df = df.assign(ra_hours=df['ra_degrees'] / 15.0, epoch_year=2000)
+        for index, row in df.iterrows():
+            ra_deg, dec_deg = galactic_to_equatorial_proper(row['GLON'], row['GLAT'])
+            df.at[index, 'ra_degrees'] = ra_deg
+            df.at[index, 'dec_degrees'] = dec_deg
+
+            x, y, z = galactic_to_cartesian(row['GLON'], row['GLAT'], row['distance_parsecs'])
+            df.at[index, '3dx'] = x
+            df.at[index, '3dy'] = y
+            df.at[index, '3dz'] = z
+        # print("3-->",df.iloc[0])
+
+        star_data_array = df.to_numpy()  # Convert DataFrame to NumPy array
+ #       array_copy = star_data_array.copy()
+
+     #   new_rows = []
+     #   for row in array_copy:
+     #       startypeIndex = find_closest_star_index(
+     #           (row[SIndex.COLOR_K_R] * 255, row[SIndex.COLOR_K_G] * 255, row[SIndex.COLOR_K_B] * 255))
+     #       new_row = np.append(row, startypeIndex)
+     #       print ("Star type", startypeIndex, row[SIndex.HIP])
+     #       new_rows.append(new_row)
+     #   new_array = np.array(new_rows)
+
+        # Print the dimensions of the updated array
+
+        return star_data_array
+
+    except Exception as e:
+        print(f"An error occurred while loading or processing the star data: {e}")
+        return None, None, None
+
+
+@jit(nopython=True)
+def galactic_to_equatorial_proper(l, b):
+    # Constants
+    RA_NGP = 192.859508  # RA of the North Galactic Pole
+    DEC_NGP = 27.128336  # DEC of the North Galactic Pole
+    L_NCP = 122.931919  # Galactic Longitude of the North Celestial Pole
+
+    # Convert angles from degrees to radians
+    l_rad = np.radians(l)
+    b_rad = np.radians(b)
+    RA_NGP_rad = np.radians(RA_NGP)
+    DEC_NGP_rad = np.radians(DEC_NGP)
+
+    # Calculate the declination in radians
+    sin_b = np.sin(b_rad)
+    cos_b = np.cos(b_rad)
+    sin_DEC_NGP = np.sin(DEC_NGP_rad)
+    cos_DEC_NGP = np.cos(DEC_NGP_rad)
+    sin_DEC = sin_b * sin_DEC_NGP + cos_b * cos_DEC_NGP * np.cos(l_rad - np.radians(L_NCP))
+    DEC = np.arcsin(sin_DEC)  # in radians
+
+    # Calculate the right ascension in radians
+    sin_l_minus_L = np.sin(l_rad - np.radians(L_NCP))
+    cos_l_minus_L = np.cos(l_rad - np.radians(L_NCP))
+    y = sin_l_minus_L * cos_b
+    x = cos_b * sin_DEC_NGP * cos_l_minus_L - sin_b * cos_DEC_NGP
+    RA = RA_NGP_rad + np.arctan2(y, x)  # in radians
+
+    # Convert radians to degrees
+    RA_deg = (np.degrees(RA) - 180) % 360
+    DEC_deg = np.degrees(DEC)
+
+    return RA_deg, DEC_deg
+
+
+@jit(nopython=True)
+def convert_to_cartesian_numpy(ra_hours, ra_minutes, ra_seconds, dec_degrees, dec_minutes, dec_seconds, distance):
+    ra = (ra_hours + ra_minutes / 60 + ra_seconds / 3600) * (np.pi / 12)  # Convert RA to radians
+    dec = (dec_degrees + dec_minutes / 60 + dec_seconds / 3600) * (np.pi / 180)  # Convert DEC to radians
+    x = distance * np.cos(dec) * np.cos(ra)
+    y = distance * np.cos(dec) * np.sin(ra)
+    z = distance * np.sin(dec)
+    return x, y, z
+
+@jit(nopython=True)
+def ra_dec_distance_to_cartesian(ra_deg, dec_deg, distance_parsecs):
+    """
+    Convert RA, DEC, and distance in parsecs to Cartesian coordinates.
+
+    Parameters:
+    - ra_deg: Right Ascension in decimal degrees
+    - dec_deg: Declination in decimal degrees
+    - distance_parsecs: Distance in parsecs
+
+    Returns:
+    - A tuple of (x, y, z) representing the Cartesian coordinates.
+    """
+    # Convert RA and DEC from degrees to radians
+    #  print ("about to check ",ra_deg)
+    ra_rad = math.radians(ra_deg)
+    dec_rad = math.radians(dec_deg)
+
+    # Calculate Cartesian coordinates with distance
+    x = distance_parsecs * math.cos(dec_rad) * math.cos(ra_rad)
+    y = distance_parsecs * math.cos(dec_rad) * math.sin(ra_rad)
+    z = distance_parsecs * math.sin(dec_rad)
+
+    return (x, y, z)
+
+@jit(nopython=True)
+def convert_ra_dec(ra_deg, dec_deg, distance):
+    print("RA DEG", ra_deg)
+    print("DEC_D", dec_deg)
+
+    # Convert RA to hours
+    ra_hours = ra_deg / 15.0
+    ra_h = int(ra_hours)
+    ra_m = int((ra_hours - ra_h) * 60)
+    ra_s = ((ra_hours - ra_h) * 60 - ra_m) * 60
+
+    # DEC conversion remains the same
+    dec_d = int(dec_deg)
+    dec_m = int(abs(dec_deg - dec_d) * 60)
+    dec_s = (abs(dec_deg - dec_d) * 60 - dec_m) * 60
+
+    x_numpy, y_numpy, z_numpy = convert_to_cartesian_numpy(ra_h, ra_m, ra_s, dec_d, dec_m, dec_s, distance)
+
+    # Format RA and DEC into strings
+    # ra_str = f"{ra_h:02d}h{ra_m:02d}m{ra_s:05.2f}s"
+    # dec_str = f"{dec_d:+03d}°{dec_m:02d}'{dec_s:05.2f}\""
+
+    return x_numpy, y_numpy, z_numpy
+
+@jit(nopython=True)
+def moveWorld(x, y, z, dist_parasec, moveDist):
+    x_move, y_move, z_move = moveDist
+    new_x = x + x_move
+    new_y = y + y_move
+    new_z = z + z_move
+
+    ra_new, dec_new = cartesian_to_ra_dec(new_x, new_y, new_z)
+    newDist = distance_3d(0, 0, 0, new_x, new_y, new_z)
+
+    # print("New Dist = ",newDist)
+    # print(f"Cartesian coordinates with distance: x={x}, y={y}, z={z}")
+    # print ("ra=",ra_new,dec_new)
+    return ra_new, dec_new, newDist
+
+@jit(nopython=True)
+def cartesian_to_ra_dec(x, y, z):
+    """
+    Convert Cartesian coordinates to RA and DEC in decimal degrees.
+
+    Parameters:
+    - x, y, z: Cartesian coordinates
+
+    Returns:
+    - A tuple (ra_deg, dec_deg) representing the Right Ascension and
+      Declination in decimal degrees.
+    """
+    # Calculate RA in radians
+    ra_rad = math.atan2(y, x)
+    # Ensure RA is in the range [0, 2π]
+    ra_rad = ra_rad if ra_rad >= 0 else ra_rad + 2 * math.pi
+
+    # Calculate DEC in radians
+    distance = math.sqrt(x ** 2 + y ** 2 + z ** 2)  # Calculate the distance to normalize z
+    dec_rad = math.asin(z / distance)
+
+    # Convert RA and DEC from radians to degrees
+    ra_deg = math.degrees(ra_rad)
+    dec_deg = math.degrees(dec_rad)
+
+    return (ra_deg, dec_deg)
+
+
+# Given a list of slightly various elements in a list, return a random item
+# if the stars are of different brightness we can simulate them twinkling
+def twinkle_star(elements):
+    if not elements:  # Check if the list is empty
+        return None  # Or raise an exception, depending on how you want to handle this case
+    return random.choice(elements)
+
+@jit(nopython=True)
+def calculate_apparent_magnitude(absolute_magnitude, distance_parsecs):
+    """
+    Calculate the apparent magnitude of a celestial object given its absolute magnitude
+    and distance in parsecs.
+
+    Args:
+        absolute_magnitude (float): The absolute magnitude of the celestial object.
+        distance_parsecs (float): The distance to the celestial object in parsecs.
+
+    Returns:
+        float: The apparent magnitude of the celestial object.
+    """
+    if distance_parsecs < 0:
+        raise ValueError("Distance must be greater than 0.")
+
+    apparent_magnitude = absolute_magnitude + 5 * (math.log10(distance_parsecs) - 1)
+    return apparent_magnitude
+
+
+# Take in a standard canvas (which can have 1-N stars with slightly different brightness and then build a series of versions
+# one for each magnitude ranging from Mag 0 to Mag 6
+
+def star_mag_size_scaling(canvas):
+    """
+    Create a 2D array where each row represents stars of different sizes
+    based on their absolute magnitude. This version handles half-magnitude
+    steps and limits the magnitude range from 0 to 10.
+
+    Parameters:
+    - canvas: A list of Pygame surface objects (images of stars) to be resized.
+
+    Returns:
+    - canvas2D: A 2D list where each element is a Pygame surface object
+                representing a resized star image.
+    """
+    MAG_START = 0  # Starting magnitude
+    MAG_END = 10  # Ending magnitude
+    MAG_STEP = 0.5  # Step for magnitudes (half-magnitude steps)
+    MAG_REF = 10  # Reference magnitude for the base radius
+    RADIUS_REF = 4  # Radius for the reference magnitude
+
+    # Calculate number of rows based on the range and step
+    rows = int((MAG_END - MAG_START) / MAG_STEP + 1)  # Rows is the number of different star colours
+    cols = len(canvas)  # This is the number of variants of each colour are in the list.
+    canvas2D = [[None for _ in range(cols)] for _ in range(rows)]
+
+    mag = MAG_START
+    for row in range(rows):
+        for img_index in range(cols):
+            # Calculate the scaling factor relative to the reference magnitude
+            scaling_factor = 10 ** ((MAG_REF - mag) / 6)
+            radius = max(1, int(RADIUS_REF * scaling_factor))
+
+            # Resize the star image based on the calculated radius
+            canvas2D[row][img_index] = pygame.transform.smoothscale(canvas[img_index], (radius, radius))
+            # print ("row = ",row," mag index = ",img_index," radius = ",radius)
+
+        mag += MAG_STEP  # Move to the next magnitude step
+
+    return canvas2D
+
+# This function take the colour for a star as a parameter in the form of a tuple (255, 255, 255)
+# It draws the star on a single Pygame surface 100pixels wide and returns a pointer to the star surface.
+# The star can be scaled by another function to match different magnitudes
+#
+# The function dras a series of filled circles starting from the largest to the smallest
+# The outer part of the star contains the colour of the star, while the centre is white
+# There are 3 distinct areas drawn, the outer section, the middle and the inner section
+# The middle and outer sections modify the circle colour to be more faint the larger the radius
+
+def draw_star_surfaces(color):
+    RADIUS = 100
+    NUMIMAGES = 4 # The number of images to create, the more images, the more variants in the images
+    TR = 3  # The twinkle level, this is used to change the colour of each image very slightly
+
+    # Surface to draw on using a constant radius value
+    star_surface = []
+
+    # i starts at RADIUS and is reduced as the loop progresses.
+    for j in range(NUMIMAGES):
+        star_surface.append(pygame.Surface((RADIUS * 2, RADIUS * 2), pygame.SRCALPHA))
+        for i in range(RADIUS, 0, -1):
+            #
+            if i < RADIUS // 2:
+                gradient_color = (255 - (j * TR), 255 - (j * TR), 255 - (j * TR))
+            elif i < RADIUS // 2:
+                mix_ratio = (i - RADIUS // 4) / (RADIUS // 4)
+                gradient_color = [int(255 - (j * TR) + (color_component - 255) * mix_ratio) for color_component in color]
+            else:
+                mix_ratio = (i - RADIUS // 2) / (RADIUS // 2)
+                gradient_color = [int(color_component * (1 - mix_ratio) - (j * TR)) for color_component in color]
+
+            gradient_color = tuple(max(0, min(255, c)) for c in gradient_color)  # Keep in range of 0-255
+            pygame.gfxdraw.filled_circle(star_surface[j], RADIUS, RADIUS, i, gradient_color)  # Draw the circle
+
+    return star_surface  # the star_surface is a 2D array of surfaces  []
+
+# This builds an array of surfaces
+def buildStarImageDB():
+    canvas_set = []  # Empty list to store surfaces
+    for star_rgb in star_list:
+        canvas_set.append(star_mag_size_scaling(draw_star_surfaces(star_rgb)))  
+    return canvas_set
+
+
+def update_star_positions_old(star_data_np):
+    new_positions_3d = []
+    for star in star_data_np:
+        # Extract all necessary original values, not just positions and distance
+        updated_star = list(star)  # Convert tuple to list if necessary, to allow modifications
+
+        # Extract current star position and distance for calculation
+        x, y, z, distance_parsecs = star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz], star[SIndex.DISTANCE_PARSECS]
+
+        # Calculate new RA, DEC, and distance
+        #       new_ra, new_dec, new_distance = moveWorld(x, y, z, distance_parsecs, (1, 1, 1))
+
+        # Convert back to Cartesian coordinates for new position
+        new_x, new_y, new_z = ra_dec_distance_to_cartesian(new_ra, new_dec, new_distance)
+
+        # Update the corresponding values in 'updated_star'
+        updated_star[SIndex.Dx] = new_x
+        updated_star[SIndex.Dy] = new_y
+        updated_star[SIndex.Dz] = new_z
+        updated_star[SIndex.DISTANCE_PARSECS] = new_distance
+        updated_star[SIndex.RA_HOURS] = new_ra / 15  # Update RA in hours directly
+
+        # Append the updated star data to the new list
+        new_positions_3d.append(updated_star)
+
+    # Convert the list to a NumPy array, preserving all original columns
+    new_star_positions_np = np.array(new_positions_3d)
+    return new_star_positions_np
+
+# Rotate object using quaternion
+def rotate_object(quaternion, axis, degrees):
+    angle = np.radians(degrees)
+    if axis == 'x':
+        delta_rotation = Quaternion(axis=[1, 0, 0], angle=angle)
+    elif axis == 'y':
+        delta_rotation = Quaternion(axis=[0, 1, 0], angle=angle)
+    elif axis == 'z':
+        delta_rotation = Quaternion(axis=[0, 0, 1], angle=angle)
+    return quaternion * delta_rotation  # Quaternion multiplication is non-commutative
+
+
+def perspective_projection(x, y, z, f):
+    if z == 0:
+        z = 1
+    x_prime = (f * x) / z
+    y_prime = (f * y) / z
+    return (x_prime, y_prime)
+
+
+# create a surface with text on it
+def writeText(text, color, fontsize):
+    font = pygame.font.Font(None, fontsize)
+    return font.render(text, True, color)
+
+    # Functions
+def initialize_pygame():
+    pygame.init()
+    screen_info = pygame.display.Info()
+
+
+    screen = pygame.display.set_mode((screen_info.current_w, screen_info.current_h), pygame.RESIZABLE)
+    pygame.display.set_caption("Holographic Star Chart Main")
+    clock = pygame.time.Clock()
+    clock.tick(FPS)
+    return screen, clock, screen_info.current_h   
+
+def create_canvas():
+    canvas = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
+    canvas.fill(CIndex.BLACK)
+    return canvas
+
+
+def drawScreenUpdate(screen, canvas, bestHeight):
+    original_width, original_height = canvas.get_size()
+    screen_width, screen_height = screen.get_size()
+    width_scale = screen_width / original_width
+    height_scale = screen_height / original_height
+    # Use the smaller scaling factor to maintain aspect ratio
+    scale_factor = min(width_scale, height_scale)
+    # Calculate the new dimensions
+    new_width = int(original_width * scale_factor)
+    new_height = int(original_height * scale_factor)    
+    scaled_canvas = pygame.transform.scale(canvas, (new_width, new_height))
+
+ #   print ("new width/height = ",new_width,new_height)
+    #    Calculate position to center the scaled canvas on the screen
+    x_position = (screen_width - new_width) // 2
+    y_position = (screen_height - new_height) // 2
+    screen.fill((0, 0, 0))
+
+    screen.blit(scaled_canvas, (x_position, y_position))
+
+ #   scaled_canvas = pygame.transform.smoothscale(canvas, (bestHeight, bestHeight))
+  #  width_scale = screen_width / canvas_width
+   # Calculate position to center the scaled canvas on the screen
+  #  x_position = (screen_width - new_width) // 2
+  #  y_position = (screen_height - new_height) // 2
+
+ #   scaled_canvas = pygame.transform.smoothscale(canvas, (min(screen_width, screen_height), max(screen_width, screen_height)))
+
+ #   screen.blit(scaled_canvas, (0, 0))
+
+    return x_position, y_position, scale_factor
+
+def blit_labels(canvas, star, nx, ny, scale, star_labels,control_vars):
+    hip_to_label = {
+        32349: 'sirius',
+        102098: 'deneb',
+        71683: 'alphaCentA',
+        37279: 'procyon',
+        8102: 'tauceti52',
+        16537: 'eridani',
+        104214: 'cyg61',
+        108870: 'epsilonIndi',
+        11767: 'polaris',
+    }
+    if star[SIndex.DISTANCE_PARSECS] > control_vars['sphere']:
+        return
+    if star[SIndex.HIP] in hip_to_label:
+        label_name = hip_to_label[star[SIndex.HIP]]
+        label_surface = star_labels[label_name]
+        canvas.blit(label_surface, (
+            nx * scale * ScreenScaler+ (canvas_width / 2) - label_surface.get_width() // 2,
+            ny * scale * ScreenScaler+ (canvas_height / 2) + label_surface.get_height() // 2
+        ))
+
+
+def initialize_labels():
+    star_labels = {
+        'sirius': writeText("Sirius", CIndex.WHITE, FIndex.MEDIUM),
+        'epsilonIndi': writeText("Epsilon Indi", CIndex.WHITE, FIndex.MEDIUM),
+        'deneb': writeText("Deneb", CIndex.WHITE, FIndex.MEDIUM),
+        'polaris': writeText("Polaris", CIndex.WHITE, FIndex.MEDIUM),
+        'betelgeuse': writeText("Betelgeuse", CIndex.WHITE, FIndex.MEDIUM),
+        'alphaCentA': writeText("Alpha Centauri A", CIndex.WHITE, FIndex.MEDIUM),
+        'alphaCentB': writeText("Alpha Centauri B", CIndex.WHITE, FIndex.MEDIUM),
+        'eridani': writeText("8 varepsilon Eridani", CIndex.WHITE, FIndex.MEDIUM),
+        'procyon': writeText("Procyon", CIndex.WHITE, FIndex.MEDIUM),
+        'tauceti52': writeText("52 Tau Ceti", CIndex.WHITE, FIndex.MEDIUM),
+        'galactic_centre': writeText("Towards Galactic Core", CIndex.WHITE, FIndex.MEDIUM),
+        'cyg61': writeText("61 Cyg", CIndex.WHITE, FIndex.MEDIUM),
+        'sol': writeText("Sol", CIndex.WHITE, FIndex.MEDIUM),
+    }
+
+    scale_labels = {
+        'P1': writeText("1 Parsec Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P2': writeText("2 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P10': writeText("10 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P50': writeText("50 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P75': writeText("75 Parsec Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P125': writeText("125 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P250': writeText("250 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P200': writeText("200 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P250': writeText("250 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P500': writeText("500 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P1000': writeText("1000 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+        'P1500': writeText("1500 Parsecs Radius", CIndex.WHITE, FIndex.MEDIUM),
+    }
+    return star_labels, scale_labels
+
+
+def initialise_control_varaiables():
+    control_vars = {
+        'draw_frame': True,
+        'draw_sun': True,
+        'draw_labels': True,
+        'draw_scale': True,
+        'test_color': True,
+        'optimise': True,
+        'MagType':    "APP",
+        'ViewScale':  1,   # this is in parsecs
+        'MaxParsecIndex' : 0, # Initialise to begin
+        'MagOffset':   0,
+        'Position':   (0,0,20),
+        'sphere': 20,
+        'scale': 0 # The scale needs to be worked out based on the radius of the frame circle. 
+
+    }
+    return control_vars
+
+
+def initialise_menu_list():
+    menu_items = [
+        "Y/I: Move Y axis", "X/B: Move X axis", "Z/V: Move Z axis",
+        "C: Toggle constellations", "R: Rotate", "+/-: Zoom",
+        "Arrow Keys right/left: Move time forward/backward", "WASD: Pan", "U: Toggle positions to enable axis shifting",
+        "M: Show/Hide this menu", "F: Reset Panning and Zooms", "G: Reset Axis rotations"
+    ]
+
+    return menu_items
+
+
+def test_star_color():
+    color = (int(0.304 * 255), int(0.452 * 255), int(1 * 255))
+    print("Theta OrionisC is O-Type Test = ", find_closest_star_index(color))
+
+    color = (int(0.355 * 255), int(0.449 * 255), int(1 * 255))
+    print("Regulus      is B-Type Test = ", find_closest_star_index(color))
+
+    color = (int(0.349 * 255), int(0.493 * 255), int(1 * 255))
+    print("Vega is A-Type Test = ", find_closest_star_index(color))
+
+    color = (int(0.939 * 255), int(0.907 * 255), int(1 * 255))
+    print("Procyon A is F-Type Test = ", find_closest_star_index(color))
+
+    color = (int(1 * 255), int(0.881 * 255), int(0.848 * 255))
+    print("Tau Ceti is G-Type Test = ", find_closest_star_index(color))
+
+    color = (int(1 * 255), int(0.715 * 255), int(0.502 * 255))
+    print("Epsilon Eridni is K-Type Test = ", find_closest_star_index(color))
+
+    color = (int(1 * 255), int(0.359 * 255), int(0.074 * 255))
+    print("Betelguese is M-Type Test = ", find_closest_star_index(color))
+
+    color = (int(0.304 * 255), int(0.452 * 255), int(1 * 255))
+    print("Theta OrionisC is O-Type Test = ", find_closest_star_color(color), " color = ", color)
+
+    color = (int(0.355 * 255), int(0.449 * 255), int(1 * 255))
+    print("Regulus      is B-Type Test = ", find_closest_star_color(color), " color = ", color)
+
+    color = (int(0.349 * 255), int(0.493 * 255), int(1 * 255))
+    print("Vega is A-Type Test = ", find_closest_star_color(color), " color = ", color)
+
+    color = (int(0.939 * 255), int(0.907 * 255), int(1 * 255))
+    print("Procyon A is F-Type Test = ", find_closest_star_color(color), " color = ", color)
+
+    color = (int(1 * 255), int(0.881 * 255), int(0.848 * 255))
+    print("Tau Ceti is G-Type Test = ", find_closest_star_color(color), " color = ", color)
+
+    color = (int(1 * 255), int(0.715 * 255), int(0.502 * 255))
+    print("Epsilon Eridni is K-Type Test = ", find_closest_star_color(color), " color = ", color)
+
+    color = (int(1 * 255), int(0.359 * 255), int(0.074 * 255))
+    print("Betelguese is M-Type Test = ", find_closest_star_color(color), " color = ", color)
+
+@jit(nopython=True)
+def rotate_points_numba(points, q):
+    """
+    Rotate a batch of points using a quaternion with Numba.
+
+    Parameters:
+    - points: An array of shape (N, 3) where N is the number of points.
+    - q: A NumPy array representing the quaternion for rotation.
+
+    Returns:
+    - Rotated points as an array of shape (N, 3).
+    """
+    q_conj = np.array([q[0], -q[1], -q[2], -q[3]])
+    rotated_points = np.zeros_like(points)
+    for i in range(points.shape[0]):
+        point = points[i]
+        p = np.array([0, point[0], point[1], point[2]])
+        q_p = np.zeros(4)
+
+        q_p[0] = q[0] * p[0] - q[1] * p[1] - q[2] * p[2] - q[3] * p[3]
+        q_p[1] = q[0] * p[1] + q[1] * p[0] + q[2] * p[3] - q[3] * p[2]
+        q_p[2] = q[0] * p[2] - q[1] * p[3] + q[2] * p[0] + q[3] * p[1]
+        q_p[3] = q[0] * p[3] + q[1] * p[2] - q[2] * p[1] + q[3] * p[0]
+
+        rotated_p = np.zeros(4)
+        rotated_p[0] = q_p[0] * q_conj[0] - q_p[1] * q_conj[1] - q_p[2] * q_conj[2] - q_p[3] * q_conj[3]
+        rotated_p[1] = q_p[0] * q_conj[1] + q_p[1] * q_conj[0] + q_p[2] * q_conj[3] - q_p[3] * q_conj[2]
+        rotated_p[2] = q_p[0] * q_conj[2] - q_p[1] * q_conj[3] + q_p[2] * q_conj[0] + q_p[3] * q_conj[1]
+        rotated_p[3] = q_p[0] * q_conj[3] + q_p[1] * q_conj[2] - q_p[2] * q_conj[1] + q_p[3] * q_conj[0]
+
+        rotated_points[i] = rotated_p[1:]  # Ignore the w component
+
+    return rotated_points
+
+
+@jit(nopython=True)
+def calculate_distance(point1, point2):
+    """
+    Calculate the Euclidean distance between two points in 3D space.
+    
+    Parameters:
+    point1 (tuple): A tuple of three coordinates (x1, y1, z1)
+    point2 (tuple): A tuple of three coordinates (x2, y2, z2)
+    
+    Returns:
+    float: The distance between the two points
+    """
+    x1, y1, z1 = point1
+    x2, y2, z2 = point2
+    
+    distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+    return distance
+
+def getMag(star,x,y,z,control_vars):
+
+    MAGTYPE = control_vars['MagType']
+    MagOffset = control_vars['MagOffset']
+    control_vars['Position']
+
+    if MAGTYPE == "APP":                
+        magindex = get_index_from_magnitude(calculate_apparent_magnitude(star[SIndex.ABS_MAG], star[SIndex.DISTANCE_PARSECS]))
+    elif MAGTYPE == "REL":
+        distance = calculate_distance((x,y,z),control_vars['Position'])
+        magindex = get_index_from_magnitude(calculate_apparent_magnitude(star[SIndex.ABS_MAG], distance))
+        print ("distance from me",distance, "Distance from earth = ",star[SIndex.DISTANCE_PARSECS])
+    else:
+        magindex = get_index_from_magnitude(star[SIndex.ABS_MAG])
+        magindex += MagOffset
+        if magindex > 20:
+            magindex = 20
+    return magindex
+
+@jit(nopython=True)
+def compute_star_data(star, control_vars, q_np, sun, scale, canvas_width, canvas_height):
+
+    rotated_points = rotate_points_numba(np.array([[star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]]]), q_np)
+    nx, ny, nz = rotated_points[0]
+
+    magindex = getMag(star, control_vars['MagType'], control_vars['MagOffset'],control_vars['Position'])
+    starimagewidth = sun[magindex][0].get_width() / 2
+
+    return (star, nx, ny, magindex, starimagewidth)
+
+@jit(nopython=True)
+def check_distance(distance, sphere):
+    return distance > sphere or distance <= 1
+
+@jit(nopython=True)
+def is_point_behind_viewpoint(point, viewpoint=(0, 0, 0), view_direction=(0, 0, 1)):
+    """
+    Determine if a 3D point is behind the viewpoint and not visible.
+    
+    Parameters:
+    point (tuple): A tuple of three coordinates (x, y, z) representing the point in 3D space.
+    viewpoint (tuple): A tuple of three coordinates (x, y, z) representing the viewpoint.
+                       Default is the origin (0, 0, 0).
+    view_direction (tuple): A tuple of three coordinates (x, y, z) representing the direction
+                            the viewpoint is facing. Default is along the positive Z-axis (0, 0, 1).
+    
+    Returns:
+    bool: True if the point is behind the viewpoint, False otherwise.
+    """
+    px, py, pz = point
+    vx, vy, vz = viewpoint
+    dx, dy, dz = view_direction
+    
+    # Calculate the vector from the viewpoint to the point
+    vector_to_point = (px - vx, py - vy, pz - vz)
+    
+    # Calculate the dot product of the view direction and the vector to the point
+    dot_product = vector_to_point[0] * dx + vector_to_point[1] * dy + vector_to_point[2] * dz
+    
+    # If the dot product is negative, the point is behind the viewpoint
+    return dot_product < 0
+@njit
+def should_draw_star(stardistance, currentradius,mag):
+    if currentradius < 100:
+        return True
+    if stardistance < currentradius/10 and mag >14:
+        return False
+    else:
+        return True
+
+
+    # This function returns a probability that the star should be drawn
+    # Sigmoid function to scale the probability
+    return 1 / (1 + math.exp((distance - max_distance / 2) / (max_distance / 10)))
+
+
+def processStarSprites (sprites,star_data_np,control_vars,q_np):
+    for star in star_data_np:
+        pass
+    return
+
+
+def processStar (star_data_np,canvas,canvas_set,control_vars,q_np,scale,star_labels,sun):
+
+    index = 0
+    counter = 0
+    for star in star_data_np:
+        stardistance = star[SIndex.DISTANCE_PARSECS]
+        if check_distance(stardistance, control_vars['sphere']):
+            pass
+        else:
+            rotated_points = rotate_points_numba(np.array([[star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]]]), q_np)
+            nx, ny, nz = rotated_points[0]
+
+            if control_vars['draw_labels']:
+                blit_labels(canvas, star, nx, ny, scale, star_labels,control_vars)
+ #           magindex = getMag(star,,nx,ny,nz,control_vars['MagType'],control_vars['MagOffset'])
+            magindex = getMag(star, nx,ny,nz,control_vars)
+            starimagewidth = sun[magindex][0].get_width() / 2
+
+            if control_vars['optimise']:
+                if should_draw_star(stardistance, control_vars['sphere'],magindex):
+                    counter+=1
+                    canvas.blit(twinkle_star(canvas_set[int(star[SIndex.STAR_TYPE])][magindex]),
+                            (nx * scale* ScreenScaler + (canvas_width/ 2 - starimagewidth),
+                            ny * scale * ScreenScaler+ (canvas_height / 2) - starimagewidth), special_flags=pygame.BLEND_ADD)   
+                    print ("magindex HERRRRRRRRRRRRR  = ", magindex,star[SIndex.HIP] )
+   
+            else:
+                counter+=1
+                canvas.blit(twinkle_star(canvas_set[int(star[SIndex.STAR_TYPE])][magindex]),
+                    (nx * scale * ScreenScaler+ (canvas_width/ 2 - starimagewidth),
+                    ny * scale * ScreenScaler + (canvas_height/ 2) - starimagewidth), special_flags=pygame.BLEND_ADD)
+                print ("magindex HERRRRRRRRRRRRR  = ", magindex)
+        if index < 8995:
+            index += 1
+    #print ("stars drawn = ",counter)
+
+def create_circle_surfaces(color, max_radius):
+    surfaces = []
+    for radius in range(2, max_radius + 2):
+        diameter = 2 * radius
+        surface = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
+        pygame.draw.circle(surface, color, (radius, radius), radius)
+        surfaces.append(surface)
+    return surfaces
+
+
+def update_star_positions(sprites, new_positions,scale):
+    for sprite, new_position in zip(sprites, new_positions):
+        sprite.set_position_3d(new_position,scale)
+
+def update_sprites_positions(sprites, new_positions):
+    for sprite, new_pos in zip(sprites, new_positions):
+        sprite.set_position_3d(new_pos)
+
+
+@jit(nopython=True)
+def set_2d_position(pos_3d,scale,canvas_offset):
+    pos_2d = (pos_3d[0] * scale + canvas_offset[0],
+    pos_3d[1] * scale + canvas_offset[1])
+    return pos_2d
+
+
+@jit(nopython=True)
+def set_frame_based_on_distance1(pos_3d, reference_point_3d,maxdistance,mindistance,num_frames):    
+    x1, y1, z1 = pos_3d[0], pos_3d[1], pos_3d[2]
+    x2, y2, z2 = reference_point_3d[0],reference_point_3d[1], reference_point_3d[2]
+    distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2) *100
+    frame_index = int((maxdistance - distance) / (maxdistance - mindistance) * (num_frames - 1))
+    if frame_index < 0:
+        frame_index = 0
+    if frame_index > num_frames -1:
+        frame_index = num_frames -1  
+
+    return frame_index
+
+class StarSprite(pygame.sprite.Sprite):
+    def __init__(self, surface_array, start_pos, visibility, glon, glat, scale, canvas_center,
+                 parsecs, abs_mag, star_type, exo_planet_num, hr, hip, hd, visibility_radius):
+        super().__init__()
+        self.surface_array = surface_array  # Reference to external 2D list or array [magnitude][variant]
+        self.variant = 0
+        self.num_variants = len(self.surface_array[0])
+        self.pos_3d = np.array(start_pos)
+        self.visible = visibility
+        self.glon = glon
+        self.glat = glat
+        self.scale = scale
+        self.canvas_center = canvas_center
+        self.image = self.surface_array[8][self.variant]  # use a default mag index
+
+  # Additional variables
+        self.Parsecs = parsecs
+        self.ABS_Mag = abs_mag
+        self.StarType = star_type
+        self.ExoPlanetNum = exo_planet_num
+        self.HR = hr
+        self.HIP = hip
+        self.HD = hd
+
+        self.update_2d_position()
+        self.rect = self.image.get_rect(center=self.pos_2d)
+        
+      
+        self.magindex = get_index_from_magnitude(calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs))
+
+        self.visibility_radius = visibility_radius
+
+    def is_visible(self):
+        return self.Parsecs <= self.visibility_radius
+
+    def set_visibility_radius(self, new_radius):
+        self.visibility_radius = new_radius   
+
+    def set_position_3d(self, new_pos,scale):
+        self.scale = scale
+        self.pos_3d = new_pos
+        self.update_2d_position()
+
+    def update_2d_position(self):
+        self.pos_2d = set_2d_position (self.pos_3d, self.scale,self.canvas_center)
+        self.rect = self.image.get_rect(center=self.pos_2d)
+        self.magindex = get_index_from_magnitude(calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs))
+        self.image = self.surface_array[self.magindex][self.variant]
+
+
+
+    def update_2d_position_old(self):
+        self.variant = self.select_random_variant()
+        x, y, z = self.pos_3d
+        self.pos_2d = self.project_3d_to_2d(x, y, z)        
+        if self.visible:
+            self.image = self.surface_array[self.magnitude][self.variant]
+            self.rect = self.image.get_rect(center=self.pos_2d)
+        else:
+            self.image = None
+            self.rect = None
+
+
+    def select_random_variant(self):
+        # Select a random variant based on the number of variants available for the current magnitude
+        variant_count = self.num_variants
+        return random.randint(0, variant_count - 1)
+
+    def project_3d_to_2d_old(self, x, y, z):
+        d = 500  # Example projection distance
+        if z != -d:  # To avoid division by zero when z == -d
+            projected_x = (x * d) / (z + d) * self.scale + self.canvas_center[0]
+            projected_y = (y * d) / (z + d) * self.scale + self.canvas_center[1]
+        else:
+            projected_x = x * self.scale + self.canvas_center[0]
+            projected_y = y * self.scale + self.canvas_center[1]
+        return (projected_x, projected_y)
+    
+    def project_3d_to_2d(self, x, y, z):
+        projected_x = x * self.scale * ScreenScaler + self.canvas_center[0]
+        projected_y = y * self.scale * ScreenScaler + self.canvas_center[1]
+
+
+    def set_visibility(self, visibility):
+        self.visible = visibility
+        self.update_2d_position()
+
+    def set_magnitude(self):
+        self.magnitude = get_index_from_magnitude(calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs))
+        self.update_2d_position()
+
+    def set_variant(self, variant):
+        self.variant = variant
+        self.update_2d_position()
+
+    def set_glon(self, glon):
+        self.glon = glon
+
+    def set_glat(self, glat):
+        self.glat = glat
+
+    def update(self):
+        self.update_2d_position()
+
+    def update_rect_position(self):
+        if self.image is not None and self.rect is not None:
+            self.rect.center = self.pos_2d
+    def print_values(self):
+#        print("Surface Array: ", self.surface_array)
+#        print("Variant: ", self.variant)
+#        print("Number of Variants: ", self.num_variants)
+        print("3D Position: ", self.pos_3d)
+#        print("Visible: ", self.visible)
+#        print("GLON: ", self.glon)
+ #       print("GLAT: ", self.glat)
+        print("Scale: ", self.scale)
+        print("Canvas Center: ", self.canvas_center)
+#        print("Image: ", self.image)
+        print("2D Position: ", self.pos_2d)
+        print("Rect: ", self.rect)
+        print("Parsecs: ", self.Parsecs)
+        print("Absolute Magnitude: ", self.ABS_Mag)
+        print("Star Type: ", self.StarType)
+ #       print("Exoplanet Number: ", self.ExoPlanetNum)
+ #       print("HR: ", self.HR)
+        print("HIP: ", self.HIP)
+ #       print("HD: ", self.HD)
+        print("Magnitude Index: ", self.magindex)
+ #       print("Visibility Radius: ", self.visibility_radius)
+
+
+class FrameSprite(pygame.sprite.Sprite):
+    def __init__(self, surfaces, pos_3d, scale, canvas_offset,reference_point_3d):
+        super().__init__()
+        self.surfaces = surfaces
+        self.num_frames = len(self.surfaces)
+        self.current_frame = self.num_frames -1
+        self.pos_3d = pos_3d
+        self.scale = scale
+        self.canvas_offset = canvas_offset
+        self.reference_point_3d = reference_point_3d
+        self.projection_distance = 3
+        self.update_2d_position()
+        self.visible = True
+        self.image = self.surfaces[self.current_frame]
+        self.rect = self.image.get_rect(center=self.pos_2d)
+        self.maxdistance = self.calculate_max_distance()*100
+        self.mindistance = self.calculate_min_distance()*100
+        self.num_frames = len(self.surfaces)
+
+    def set_position_3d(self, pos_3d):
+        self.pos_3d = pos_3d
+        self.update_2d_position()
+        self.update_frame_based_on_distance()
+        self.update_rect_position()  # Ensure rect position is updated
+
+    def set_frame(self, frame_index):
+        if 0 <= frame_index < len(self.surfaces):
+            self.current_frame = frame_index
+            self.image = self.surfaces[self.current_frame]
+ #           self.update_rect_position()  # Ensure rect position is updated
+        else:
+            raise IndexError("Frame index out of range", frame_index)
+
+    def set_reference_point_3d(self, ref_point_3d):
+        self.reference_point_3d = ref_point_3d
+        self.update_frame_based_on_distance()
+
+
+    def calculate_max_distance(self):
+        # Calculate the Euclidean distance between two 3D points
+        x1, y1, z1 = self.reference_point_3d
+        x2, y2, z2 = (0,0,-1)
+        return math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)  
+    
+    def calculate_min_distance(self):
+        # Calculate the Euclidean distance between two 3D points
+        x1, y1, z1 = self.reference_point_3d
+        x2, y2, z2 = (0,0,1)
+        return math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)  
+    
+    def update_frame_based_on_distance(self):
+        self.set_frame (set_frame_based_on_distance1(self.pos_3d, self.reference_point_3d,self.maxdistance,self.mindistance,self.num_frames))    
+
+    def update_2d_position(self):
+        self.pos_2d = (set_2d_position (self.pos_3d, self.scale,self.canvas_offset))
+
+    def update_rect_position(self):
+        if self.image is not None and self.rect is not None:
+            self.rect.center = self.pos_2d
+
+    def set_canvas_offset(self, canvas_offset):
+        self.canvas_offset = canvas_offset
+        self.update_2d_position()
+        self.update_rect_position()
+
+    def set_visibility(self, visible):
+        self.visible = visible
+
+@jit(nopython=True)
+def calculate_line_points(start_point, end_point, num_points=10):
+    """
+    Calculate a series of points from start_point to end_point.
+    
+    Args:
+    start_point (tuple): The starting point (x, y, z).
+    end_point (tuple): The ending point (x, y, z).
+    num_points (int): The number of points to calculate.
+    
+    Returns:
+    np.ndarray: A NumPy array of shape (num_points, 3) representing the points.
+    """
+    # Create arrays for x, y, and z coordinates from start to end
+    x_coords = np.linspace(start_point[0], end_point[0], num_points)
+    y_coords = np.linspace(start_point[1], end_point[1], num_points)
+    z_coords = np.linspace(start_point[2], end_point[2], num_points)
+    
+    # Stack the coordinates to form a (num_points, 3) array
+    points = np.column_stack((x_coords, y_coords, z_coords))
+    
+    return points
+
+def batch_create_frame_sprites(surfaces, positions,scale,canvas_centre,reference_point):
+    sprites = pygame.sprite.Group()
+    for pos in positions:
+        sprite = FrameSprite(surfaces, pos,scale,canvas_centre,reference_point)
+        sprites.add(sprite)
+    return sprites
+
+def batch_create_star_sprites(surfaces, positions, scale,canvas_centre,reference_point):
+    sprites = pygame.sprite.Group()
+    for pos in positions:
+        sprite = StarSprite(surfaces, pos,True,GLON, GLAT, scale, canvas_centre,reference_point)
+        sprites.add(sprite)
+    return sprites
+  
+        
+def display_fps(screen, clock, font):
+    fps = str(int(clock.get_fps()))
+    fps_text = font.render(fps, True, pygame.Color('white'))
+    screen.blit(fps_text, (10, 10))
+import numpy as np
+import pygame
+
+def generate_star_sprites(control_vars, canvas, canvas_set, star_data_np):
+    canvas_center = (canvas.get_width() // 2, canvas.get_height() // 2)
+    scale = control_vars['scale'] * ScreenScaler
+    sprites = pygame.sprite.Group()
+    print("Building star sprites..")
+    star_points = []
+
+    for star in star_data_np:
+        sprite = StarSprite(
+            canvas_set[int(star[SIndex.STAR_TYPE])],
+            (star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]),
+            True,
+            star[SIndex.GLON],
+            star[SIndex.GLAT],
+            scale,
+            canvas_center,
+            star[SIndex.DISTANCE_PARSECS],
+            star[SIndex.ABS_MAG],
+            star[SIndex.STAR_TYPE],
+            0,
+            0,
+            star[SIndex.HIP],
+            0, 
+            control_vars['sphere']
+        )
+        sprites.add(sprite)
+        star_point = np.array([star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]])
+        star_points.append(star_point)
+
+    star_points = np.array(star_points)
+    return star_points, sprites
+
+def update_visibility(sprites, visibility_radius):
+
+    custom_sprites = CustomSpriteGroup()
+
+#    visible_sprites = pygame.sprite.Group()
+    for sprite in sprites:
+        sprite.set_visibility_radius(visibility_radius)
+        if sprite.is_visible():
+            custom_sprites.add(sprite)
+
+    return custom_sprites
+
+
+def update_visibility_old(sprites, visibility_radius):
+    visible_sprites = pygame.sprite.Group()
+    for sprite in sprites:
+        sprite.set_visibility_radius(visibility_radius)
+        if sprite.is_visible():
+            visible_sprites.add(sprite)
+    return visible_sprites
+
+class CustomSpriteGroup(pygame.sprite.Group):
+    def draw(self, surface):
+        sprites = self.sprites()
+        for spr in sprites:
+            surface.blit(spr.image, spr.rect, special_flags=pygame.BLEND_ADD)
+
+
+def find_star_by_position(sprites, x, y ):
+    for star in sprites:
+        variance = abs(star.pos_2d[0]-star.rect[0])/2
+        if variance < 5:
+            variance = 5
+        if abs(star.pos_2d[0] - x) <= variance and abs(star.pos_2d[1] - y) <= variance:
+            return star.HIP
+    return None
+
+
+def generate_frame_sprites(control_vars,canvas):
+    
+    canvas_center = (canvas.get_width() // 2, canvas.get_height() // 2)
+    scale = control_vars['scale']*ScreenScaler
+
+    frame_surfaces = create_circle_surfaces(CIndex.CYAN, 10) 
+    frame_surfaces1 = create_circle_surfaces(CIndex.RED, 12)
+    frame_surfaces2 = create_circle_surfaces(CIndex.CYAN, 10) 
+
+    points_circle_frame1 = generate_3d_circle_points(1, 1, 'z')
+    points_circle_frame2 = generate_3d_circle_points(0.99, 4, 'z')
+    points_3dz = generate_3d_circle_points(1, 1, 'z')
+    points_3dx = generate_3d_circle_points(1, 2, 'x')
+    points_3dz1 = generate_3d_circle_points(0.5, 1, 'z')
+    points_3dy = generate_3d_circle_points(1, 2, 'y')
+    line_x = calculate_line_points((0.01,0,0),(1,0,0),100)
+    line_x1 = calculate_line_points((-1,0,0),(0,0,0),100)
+    line_y = calculate_line_points((0,-1,0),(0,1,0),100)
+
+    all_frame_points1 = np.concatenate((points_3dz,points_3dx,points_3dz1, points_3dy, line_x1, line_y ) )
+
+    red_line_sprites_group  = batch_create_frame_sprites(frame_surfaces1, line_x, scale,canvas_center,(0,0,20))
+    green_circle_sprites_group1  = batch_create_frame_sprites(frame_surfaces2, points_circle_frame1, scale,canvas_center,(0,0,20))
+    green_circle_sprites_group2  = batch_create_frame_sprites(frame_surfaces, points_circle_frame2, scale,canvas_center,(0,0,20))
+    all_frame_sprites_group = batch_create_frame_sprites(frame_surfaces,all_frame_points1, scale,canvas_center,(0,0,20) )
+    all_frame_sprites_group.add(red_line_sprites_group.sprites())
+    all_frame_sprites_group.add(green_circle_sprites_group1.sprites())
+    all_frame_sprites_group.add(green_circle_sprites_group2.sprites())
+    all_frame_points = np.concatenate((all_frame_points1,line_x) )
+
+    return all_frame_points, all_frame_sprites_group
+
+def showFPS(FPS_text,frame_count,start_time):
+    frame_count += 1
+    current_time = pygame.time.get_ticks()
+    elapsed_time = current_time - start_time
+    if elapsed_time > 1000:  # 1000 ms = 1 second
+        actual_fps = frame_count / (elapsed_time / 1000.0)
+        FPS_text = f"Actual FPS: {actual_fps:.2f}"
+        frame_count = 0
+        start_time = current_time
+    return FPS_text, frame_count, start_time
+
+
+# Handle the keyboard events
+def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotate,g_key_pressed,x_offset,y_offset,canvas_scale,menu):
+    scaling_factor = 1.03
+    max_parsecs = 1500
+    scaled_mouse_x,scaled_mouse_y = -1, -1
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            return False, parsecs, current_orientation, rotate           
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Get the mouse position
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            scaled_mouse_x = (mouse_x- x_offset) / canvas_scale
+            scaled_mouse_y = (mouse_y- y_offset) / canvas_scale
+            control_vars, parsecs = menu.handle_mouse_click((scaled_mouse_x,scaled_mouse_y),control_vars, parsecs)
+        elif event.type == pygame.MOUSEWHEEL:
+            menu.handle_mouse_wheel(event.y)
+
+ #           print(f"Mouse clicked at: ({mouse_x}, {mouse_y}, {scaled_mouse_x}, {scaled_mouse_y}, {canvas_scale})")
+
+        if event.type == pygame.KEYDOWN:
+
+            if event.key == pygame.K_q:
+                return False, parsecs, current_orientation, rotate
+
+            if event.key == pygame.K_m:
+                control_vars['MagType'] = "APP" if control_vars['MagType'] == "REL" else "REL"
+
+            if event.key == pygame.K_MINUS:
+                parsecs *= scaling_factor
+                if parsecs > max_parsecs:
+                    parsecs = max_parsecs
+                control_vars['Position'] = (0, 0, parsecs)
+
+            if event.key == pygame.K_EQUALS:
+                parsecs *= 1 / scaling_factor
+                if parsecs <= 0:
+                    parsecs = 1
+                control_vars['Position'] = (0, 0, parsecs)
+
+            if event.key in key_to_scale:
+                control_vars['ViewScale'] = key_to_scale[event.key]
+                parsecs = get_pasec_from_index(control_vars['ViewScale'])
+                control_vars['Position'] = (0, 0, parsecs)
+
+            if event.key == pygame.K_o:
+                control_vars['optimise'] = not control_vars['optimise']
+                print(f"Frame {'On' if control_vars['optimise'] else 'Off'}")
+
+            if event.key == pygame.K_f:
+                control_vars['draw_frame'] = not control_vars['draw_frame']
+
+            if event.key == pygame.K_s:
+                control_vars['draw_sun'] = not control_vars['draw_sun']
+                print(f"Sun {'On' if control_vars['draw_sun'] else 'Off'}")
+
+            if event.key == pygame.K_l:
+                control_vars['draw_labels'] = not control_vars['draw_labels']
+                print(f"Labels {'On' if control_vars['draw_labels'] else 'Off'}")
+
+            if event.key == pygame.K_g and not g_key_pressed:
+                g_key_pressed = True
+                proper_name = fetch_star_details(32349)
+                response = client.get_info(proper_name)
+                print(response)
+                print("Finished the print - len ", len(response))
+
+    
+            if event.key == pygame.K_x:
+                rotate = True
+                current_orientation = rotate_object(current_orientation, 'x', 1)
+            if event.key == pygame.K_b:
+                rotate = True
+                current_orientation = rotate_object(current_orientation, 'x', -1)
+            if event.key == pygame.K_y:
+                rotate = True
+                current_orientation = rotate_object(current_orientation, 'y', 1)
+            if event.key == pygame.K_i:
+                rotate = True
+                current_orientation = rotate_object(current_orientation, 'y', -1)
+            if event.key == pygame.K_z:
+                rotate = True
+                current_orientation = rotate_object(current_orientation, 'z', 1)
+            if event.key == pygame.K_v:
+                rotate = True
+                current_orientation = rotate_object(current_orientation, 'z', -1)
+            if event.key == pygame.K_SPACE:
+                rotate = True
+                current_orientation = Quaternion()  # Reset rotation
+
+            if event.key == pygame.K_r:
+                control_vars['MagOffset'] += 1
+            if event.key == pygame.K_t:
+                control_vars['MagOffset'] -= 1
+
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_g:
+                g_key_pressed = False
+
+    return True, parsecs, current_orientation, rotate, g_key_pressed,scaled_mouse_x, scaled_mouse_y
+
+def count_stars(sprite_group):
+    return len(sprite_group)
+# Function to perform the blocking call in the background
+def fetch_info(hip_value):
+    proper_name = fetch_star_details(int(hip_value))
+    response = client.get_info(proper_name)
+    text_to_speech(response)
+    return hip_value, proper_name, response
+
+# Define actions
+def action_0(control_vars):
+    print("Action 0 triggered.")
+    control_vars['ViewScale'] = 0
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+def action_1(control_vars):
+    print("Action 1 triggered.")
+    control_vars['ViewScale'] = 1
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+def action_2(control_vars):
+    print("Action 2 triggered.")
+    control_vars['ViewScale'] = 2
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+
+def action_3(control_vars):
+    print("Action 3 triggered.")
+    control_vars['ViewScale'] = 3
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+
+def action_4(control_vars):
+    print("Action 4 triggered.")
+    control_vars['ViewScale'] = 3
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+
+def action_5(control_vars):
+    print("Action 5 triggered.")
+    control_vars['ViewScale'] = 4
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+
+def action_6(control_vars):
+    print("Action 6 triggered.")
+    control_vars['ViewScale'] = 5
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+
+def action_7(control_vars):
+    print("Action 7 triggered.")
+    control_vars['ViewScale'] = 6
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+
+def action_8(control_vars):
+    print("Action 8 triggered.")
+    control_vars['ViewScale'] = 7
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+    control_vars['Position'] = (0, 0, parsecs)
+    return control_vars, parsecs
+
+
+def action_9(control_vars):
+    print("Action 9 triggered.")
+
+
+## Menu class
+class Menu:
+    def __init__(self, screen, items, font, font_color, select_color,width,height):
+        self.screen = screen
+        self.items = items
+        self.font = font
+        self.font_color = font_color
+        self.select_color = select_color
+        self.current_item = 0
+        self.menu_rects = []
+        self.dropdown_open = False
+        self.menu_pos = (screen.get_width() - width, 10)  # Position of the menu button
+        self.menu_size = (width, height)  # Size of the menu button
+        self.dropdown_rect = pygame.Rect(self.menu_pos[0], self.menu_pos[1] + self.menu_size[1], width, 60 * len(items))  # Dropdown menu area
+
+    def draw(self):
+        #self.screen.fill(CIndex.BLACK)
+        # Draw menu button
+        menu_button = pygame.Rect(self.menu_pos, self.menu_size)
+        pygame.draw.rect(self.screen, CIndex.BLACK, menu_button)
+        menu_label = self.font.render("Menu", True, CIndex.WHITE)
+        self.screen.blit(menu_label, (self.menu_pos[0] + 10, self.menu_pos[1] + 5))
+
+        if self.dropdown_open:
+            pygame.draw.rect(self.screen, CIndex.BLACK, self.dropdown_rect)  # Draw dropdown background
+            self.menu_rects = []
+            for index, (text, _) in enumerate(self.items):
+                label = self.font.render(text, True, self.font_color if index != self.current_item else self.select_color)
+                width = label.get_width()
+                height = label.get_height()
+                pos_x = self.dropdown_rect.left + (self.dropdown_rect.width // 2) - (width // 2)
+                pos_y = self.dropdown_rect.top + 10 + (index * (height + 10))
+                self.screen.blit(label, (pos_x, pos_y))
+                self.menu_rects.append(pygame.Rect(pos_x, pos_y, width, height))
+
+    def handle_mouse_click(self, pos, control_vars,parsecs):
+        menu_button = pygame.Rect(self.menu_pos, self.menu_size)
+        if menu_button.collidepoint(pos):
+            self.dropdown_open = not self.dropdown_open
+            return control_vars, parsecs
+        
+        if self.dropdown_open:
+            if not self.dropdown_rect.collidepoint(pos):
+                self.dropdown_open = False
+                return control_vars, parsecs
+            for index, rect in enumerate(self.menu_rects):
+                if rect.collidepoint(pos):
+                    item_number = self.items[index][1]
+                    control_vars, parsecs = self.execute_action(item_number, control_vars)
+
+        print (control_vars,parsecs)
+        return control_vars, parsecs
+
+    def handle_mouse_wheel(self, y):
+        if self.dropdown_open:
+            self.current_item = (self.current_item - y) % len(self.items)
+
+    def execute_action(self, item_number, control_vars):
+        actions = {
+            0: action_0,
+            1: action_1,
+            2: action_2,
+            3: action_3,
+            4: action_4,
+            5: action_5,
+            6: action_6,
+            7: action_7,
+            8: action_8,
+            9: action_9
+        }
+        action = actions.get(item_number, lambda: print(f"No action for item number {item_number}"))
+        control_vars, parsecs = action(control_vars)
+        return control_vars, parsecs
+
+
+def wrap_text(text, font, max_width):
+    """Splits the text into lines that fit within the specified width."""
+    words = text.split(' ')
+    lines = []
+    current_line = []
+    current_width = 0
+    
+    for word in words:
+        word_surface = font.render(word, True, (0, 0, 0))
+        word_width, word_height = word_surface.get_size()
+        
+        if current_width + word_width <= max_width:
+            current_line.append(word)
+            current_width += word_width + font.size(' ')[0]  # Add a space width
+        else:
+            lines.append(' '.join(current_line))
+            current_line = [word]
+            current_width = word_width + font.size(' ')[0]
+    
+    lines.append(' '.join(current_line))
+    return lines
+
+def render_text(surface, text, font, color, rect, max_width):
+    """Renders the text on the surface with wrapping."""
+    y = rect.top
+    line_spacing = -2  # Adjust as needed
+
+    lines = wrap_text(text, font, max_width)
+    
+    for line in lines:
+        line_surface = font.render(line, True, color)
+        line_width, line_height = line_surface.get_size()
+        surface.blit(line_surface, (rect.left, y))
+        y += line_height + line_spacing
+
+
+@profile
+def main():
+    # Initialise variables used to control the user experience
+    control_vars = initialise_control_varaiables()
+    control_vars['scale'] = (canvas_width//2) / control_vars['ViewScale']
+    control_vars['MaxParsecIndex'] = len(index_parsecs)
+    parsecs = get_pasec_from_index(control_vars['ViewScale'])     
+
+    current_orientation = Quaternion()
+    q_np = np.array([current_orientation.w, current_orientation.x, current_orientation.y, current_orientation.z])
+    rotated = False
+    g_key_pressed = False
+
+    # Initialise Pygame and the Screen for primary display, setting Height and Width to the Height of the canvas
+    # bestHeight is set as the width and height of the display screen
+    screen, clock, bestHeight = initialize_pygame()
+ 
+    # This is the main surface for all drawing
+    canvas = create_canvas()
+
+    canvas_center = (canvas.get_width() // 2, canvas.get_height() // 2)
+    scale = control_vars['scale'] * ScreenScaler
+
+    # Load the data from the JSOPN file 
+    canvas_set = buildStarImageDB()
+
+    # Load the data from a file
+ #   star_data_np = load_custom_star_data('../datasets/star_database_colors.json')
+
+    star_data_np = load_custom_star_data('../datasets/updated_star_database_bsc5p.json')
+
+    # Now create all of the sprites for the wire-frame and the points for rotation
+    all_frame_points, all_frame_sprites_group = generate_frame_sprites(control_vars,canvas)
+   
+    # Now create all of the sprites for the stars 
+    all_star_points, all_stars_sprites_group = generate_star_sprites(control_vars,canvas, canvas_set,star_data_np)
+    
+    #visible_star_sprite_group = set_star_3d (all_stars_sprites_group)
+
+
+#   Sun special case related code. 
+    teststar=star_data_np[0]
+    sun = star_mag_size_scaling(draw_star_surfaces(StarColourIndex.G_Type))
+    sun_sprite = StarSprite(sun, (0,0,0), True, 0, 0, scale ,canvas_center, 0.1, 4.83, StarColourIndex.G_Type, 1, 0,0,0,control_vars['sphere'])
+    star1 = pygame.sprite.Group()
+    star1.add(sun_sprite)
+
+    # Initialising the labes for use in the progam
+    star_labels, scale_labels = initialize_labels()
+
+    # Main loop, required variables for testing
+    print("Starting simulation")
+    frame_count = 0
+
+    start_time = pygame.time.get_ticks()
+    running = True
+    pygame.key.set_repeat(200, 25)
+    FPS_text = f"Actual FPS: 0"
+
+    x_offset,y_offset,canvas_scale = (0,0,1)
+    response= ""
+    font = pygame.font.SysFont(None, 24)
+
+    # ThreadPoolExecutor for background tasks
+    executor = ThreadPoolExecutor(max_workers=2)
+    futures = []
+
+    MENU_WIDTH = int(canvas_width * 0.1)
+    MENU_HEIGHT = 40
+    FONT_SIZE = int(MENU_WIDTH * 0.4)  # Adjust font size based on menu width
+    menufont = pygame.font.Font(None, 50)
+
+    # Menu items: (Text, Number)
+    menu_items = [("1 Parecs", 0), 
+                ("2 Parsecs", 1), 
+                ("10 Parsecs", 2)]
+
+    menu = Menu(canvas, menu_items, menufont,CIndex.WHITE, CIndex.RED, MENU_WIDTH,MENU_HEIGHT)
+
+
+    while running:
+        clock.tick(FPS)
+
+        # check for key input
+        running, parsecs, current_orientation,rotated,g_key_pressed,mouse_x,mouse_y = handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotated,g_key_pressed,x_offset,y_offset,canvas_scale,menu)
+        if running:
+            canvas.fill((0, 0, 0))
+
+ 
+
+            # Rotate and update frame points regardless of the draw_frame flag
+            if rotated:
+                q_np = np.array([current_orientation.w, current_orientation.x, current_orientation.y, current_orientation.z])
+        
+            # Required in case the canvas resizes
+            #
+            control_vars['scale'] = (canvas_width//2) / parsecs
+            control_vars['sphere'] = parsecs
+            # Rotate the galactic center star
+
+
+
+            if control_vars['draw_frame']:
+                update_sprites_positions(all_frame_sprites_group, rotate_points_numba(all_frame_points,q_np))
+                all_frame_sprites_group.draw(canvas)
+            
+            update_star_positions(all_stars_sprites_group, rotate_points_numba(all_star_points,q_np),control_vars['scale'])
+ 
+            custom_visible_star_sprites = update_visibility(all_stars_sprites_group,control_vars['sphere'])
+
+            custom_visible_star_sprites.draw(canvas)
+
+
+            hip_value = find_star_by_position(custom_visible_star_sprites, mouse_x, mouse_y)
+            if hip_value:
+                print(f"The HIP value of the star at position ({mouse_x}, {mouse_y}) is {hip_value}.")
+                response = "Loading Data about.... Please wait."
+
+                future = executor.submit(fetch_info, hip_value)
+                futures.append(future)
+                mouse_x, mouse_y = (0,0)
+
+
+            # Check if any futures are done and handle their results
+            for future in futures[:]:
+                if future.done():
+                    hip_value, proper_name, response = future.result()
+                    print(f"Proper Name and HIP: {proper_name}, {hip_value}")
+                    print(response)
+                    futures.remove(future)
+
+ #               proper_name = fetch_star_details(int(hip_value))
+ #               print ("Proper Name and HIP ", proper_name, hip_value)
+ #               response = client.get_info(proper_name)
+ #               mouse_x, mouse_y = (0,0)
+ #                   
+ #               print(response)
+
+
+ #           canvas.blit(writeText(response, CIndex.WHITE, FIndex.SMALL), (canvas_width*0.75,canvas_height*0.25))    
+            menu.draw()
+           
+            parsec_text = f"Distance in Parsecs: {parsecs:.2f}"
+            canvas.blit(writeText(parsec_text, CIndex.WHITE, FIndex.MEDIUM), (100,100))
+            canvas.blit(writeText(FPS_text, CIndex.WHITE, FIndex.MEDIUM), (100,200))           
+            x_offset, y_offset, canvas_scale = drawScreenUpdate(screen, canvas, bestHeight)
+            text_rect = pygame.Rect(10, 10, 700, 500)  # Define the area for text
+            render_text(screen, response, font, CIndex.WHITE, text_rect, text_rect.width)
+
+            FPS_text, frame_count,start_time = showFPS(FPS_text,frame_count,start_time)
+            pygame.display.flip()
+
+        else:
+            print("Ending simulation")
+
+if __name__ == "__main__":
+    main()
+
+pygame.quit()
+

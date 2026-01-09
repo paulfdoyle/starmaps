@@ -47,6 +47,16 @@ Internal source of truth for projects and phases. Use PM.html for the visual por
     - `AI_first/projects/project_management/phases/phase03/phase_definition.md` — definition of Phase 03.
     - `AI_first/projects/project_management/phases/phase03/action_plan_phase03.md` — action plan for Phase 03 (links to stage actions under `AI_first/projects/project_management/phases/phase03/actions/`).
 
+- **ui_redesign (planning)**
+  - Summary: `AI_first/projects/ui_redesign/project_summary_ui_redesign.md`
+  - Phases root: `AI_first/projects/ui_redesign/phases/`
+  - Issues log: use Bug Management entries with `project: "ui_redesign"`
+  - Phases overview:
+    - Phase 01 — Discovery & Direction (planning): see `AI_first/projects/ui_redesign/phases/phase01/`.
+  - Phase directory map:
+    - `AI_first/projects/ui_redesign/phases/phase01/phase_definition.md` — definition of Phase 01.
+    - `AI_first/projects/ui_redesign/phases/phase01/action_plan_phase01.md` — action plan for Phase 01 (links to stage actions under `AI_first/projects/ui_redesign/phases/phase01/actions/`).
+
 ## Project-wide references and actions
 - Personas: `AI_first/docs/project_wide_docs/personas.md`.
 - Templates: `AI_first/docs/templates/` (project plan, phase definition/action plan, stage action, review checklists, DoD).

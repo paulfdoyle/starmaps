@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stage Action (ui_redesign_phase01_stage_audit_action.md)</title>
+  <link rel="stylesheet" href="../../../../../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../../../../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../../../../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../../../../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../../../../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Stage Action (ui_redesign_phase01_stage_audit_action.md)</h1>
+        <p class="muted small">AI_first/projects/ui_redesign/phases/phase01/actions/ui_redesign_phase01_stage_audit_action.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../../../../../projects/ui_redesign/phases/phase01/actions/ui_redesign_phase01_stage_audit_action.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Stage Action (ui_redesign_phase01_stage_audit_action.md)</h1>
+<ul>
+<li>**Phase/Stage:** Phase 01 — Discovery &amp; Direction (audit).</li>
+<li>**Objective:** Define scope, workflow, and expectations for UI Redesign.</li>
+<li>**Scope:** In: planning docs and acceptance criteria; Out: implementation.</li>
+<li>**Acceptance:** Persona notes recorded; scope documented; DoD referenced.</li>
+<li>**Dependencies/data:** <code>AI_first/docs/process.md</code>, <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/ui_redesign/project_summary_ui_redesign.md</code></li>
+<li>**Outputs:** Updated phase/stage docs and any related process updates.</li>
+<li>**Layout proposal summary:** Left HUD panel (320-360px) with grouped sections (header, filters, distance, brightness, toggles, help); unified controls and cached UI surfaces.</li>
+<li>**Layout proposal highlights:** Filters and toggles grouped top-to-bottom; distance/brightness controls use a single slider each with numeric readout.</li>
+<li>**Interaction model:** Primary mouse controls with optional +/- micro-controls; keyboard/scroll hints live in a collapsible help footer.</li>
+<li>**Performance approach:** Cache HUD panels and labels; re-render dynamic values only on change.</li>
+<li>**UI spec draft:** Palette, typography scale, component sizes, layout grid, and interaction mapping.</li>
+<li>**Definition of Done:** Persona notes filled, DoD checklist referenced, validation steps recorded.</li>
+</ul>
+<h2>Personas (record outputs; use <code>AI_first/docs/templates/review_checklists.md</code>)</h2>
+<ul>
+<li>Project/Process Manager:</li>
+<li>Scope focus: BCO stars UI in <code>src/starmaps/bco1.py</code> (entry <code>scripts/run_bco1.py</code>).</li>
+<li>Stage output: UI audit notes, criteria for professional look and performance, and a layout proposal next.</li>
+<li>Developer:</li>
+<li>Current UI controls: menu buttons, parsec arrow buttons, parsec slider, brightness slider, keyboard and scroll bindings.</li>
+<li>UI drawing is direct to the star field each frame with fixed coordinates and hard-coded font sizing.</li>
+<li>Interaction paths are duplicated (keys, scroll, sliders), which increases maintenance and UX inconsistency risk.</li>
+<li>QA Lead:</li>
+<li>Verify consistent control behavior across mouse, keyboard, and scroll.</li>
+<li>Confirm UI elements remain readable and clickable across resolutions.</li>
+<li>Confirm performance targets (60+ FPS) with UI changes and no regressions in star rendering.</li>
+<li>Optional personas (Product Manager, Repository Steward, Docs Expert, UI/Accessibility, Bug Triage, Automation/Tooling, Architect, Security, Ops/Observability, Performance/Cost, DBA):</li>
+<li>UI/Accessibility: legible type scale, contrast-safe overlay panel, 44px hit targets, clear hover/selected state.</li>
+<li>Performance/Cost: cached UI surfaces and event-driven redraws; minimize per-frame allocations.</li>
+</ul>
+<h2>Plan</h2>
+<ul>
+<li>Confirm scope: BCO stars UI in <code>src/starmaps/bco1.py</code> only.</li>
+<li>Capture current control map and rendering paths for buttons and sliders.</li>
+<li>Define professional UI criteria and performance criteria.</li>
+<li>Draft a panel-based layout proposal with consistent interactions and text labels.</li>
+</ul>
+<h2>Execution notes</h2>
+<ul>
+<li>BCO UI audit (current use):</li>
+<li>Menu buttons: fixed-position rectangles (filter menu) with hover/selected state; no panel background, so readability depends on star-field density.</li>
+<li>Parsec control: arrow buttons plus a horizontal slider, fixed coordinates, no DPI scaling.</li>
+<li>Brightness control: slider plus scroll wheel and R/T keys; visual label is separate and not co-located with slider.</li>
+<li>UI text: hard-coded font (Consolas, size 14) and fixed placements.</li>
+<li>Graphics engine in use:</li>
+<li>Pygame software rendering with sprite-based stars and additive blending (<code>CustomSpriteGroup.draw</code>).</li>
+<li>Precomputed star surface variants for twinkle; Numba rotation and visibility masks for visible stars.</li>
+<li>UI is redrawn every frame; star updates are gated by rotation/visibility/brightness changes.</li>
+<li>Full-screen/no-frame window across monitors with fixed UI coordinates.</li>
+<li>Criteria for a more professional UI:</li>
+<li>Responsive layout: panels and controls anchored to edges; no fixed pixel-only positions.</li>
+<li>Visual hierarchy: semi-opaque HUD panel, grouped controls, consistent spacing and labels.</li>
+<li>Consistent interaction: one primary control per action (slider or buttons) with clear state.</li>
+<li>Readability: typography scale (16/20/24), consistent stroke weights, contrast-safe colors.</li>
+<li>Affordance: 44px hit targets and visible hover/active states.</li>
+<li>Criteria for UI performance:</li>
+<li>Frame budget: target 60+ FPS; UI render under 1 ms, star render and update under 15 ms.</li>
+<li>Event-driven UI redraw: cache UI surfaces, update only on state change (filter/slider/hover).</li>
+<li>Avoid per-frame allocations for UI text or surfaces.</li>
+<li>Layout proposal (BCO stars UI):</li>
+<li>Layout: left-side HUD panel (320-360px width) with semi-opaque background and subtle border; star field remains full-bleed.</li>
+<li>Sections:</li>
+<li>Header: title &quot;BCO Star Map&quot; + compact status row (FPS, visible stars, current parsecs).</li>
+<li>Filters: vertical button stack with selected state and short labels; include &quot;All Stars&quot; default.</li>
+<li>Distance: single slider with numeric readout; keep arrow buttons optional as +/- micro-controls.</li>
+<li>Brightness: single slider with +/- buttons and current offset readout.</li>
+<li>Toggles: frame, sun, labels, optimize (icon + label).</li>
+<li>Help: inline key/scroll hints in a collapsible footer.</li>
+<li>Typography &amp; spacing: base 16px, section labels 14px, header 20-22px; 12-16px padding; 10-12px gaps.</li>
+<li>Interaction model: unify to one primary input per control; hover/active states consistent across buttons and sliders.</li>
+<li>Rendering: cache panel background and static labels; re-render dynamic values only on change.</li>
+<li>UI spec draft (BCO HUD):</li>
+<li>Layout grid:</li>
+<li><code>ui_scale = clamp(min(w / 1280, h / 720), 0.85, 1.2)</code>.</li>
+<li>Panel width: <code>int(340 * ui_scale)</code>; panel height: <code>int(h * 0.88)</code>.</li>
+<li>Panel inset: <code>int(16 * ui_scale)</code>; section spacing: <code>int(14 * ui_scale)</code>; control padding: <code>int(10 * ui_scale)</code>.</li>
+<li>Typography:</li>
+<li>Font: include <code>assets/fonts/SpaceGrotesk-Regular.ttf</code> and <code>SpaceGrotesk-Medium.ttf</code> (fallback to system sans).</li>
+<li>Sizes: header 22, section 16, body 14, micro 12 (all scaled by <code>ui_scale</code>).</li>
+<li>Color palette:</li>
+<li>Background: <code>rgb(6, 10, 14)</code>; panel: <code>rgba(12, 16, 22, 200)</code>.</li>
+<li>Text primary: <code>rgb(230, 236, 244)</code>; text secondary: <code>rgb(168, 178, 191)</code>.</li>
+<li>Accent: <code>rgb(76, 201, 240)</code>; accent-alt: <code>rgb(98, 245, 156)</code>.</li>
+<li>Border: <code>rgba(255, 255, 255, 40)</code>.</li>
+<li>Buttons:</li>
+<li>Height 36-40px; radius 8; 1px border.</li>
+<li>States: default (border only), hover (border + text accent), selected (fill accent at 20% opacity).</li>
+<li>Sliders:</li>
+<li>Track height 4px; knob radius 8px; numeric readout to the right.</li>
+<li>Distance slider maps to <code>index_parsecs</code>; brightness slider maps to <code>BRIGHTNESS_MIN/MAX</code>.</li>
+<li>Toggles:</li>
+<li>Row of 2x2 toggles or vertical stack; icon + label; on/off uses accent fill and check mark.</li>
+<li>Interaction mapping:</li>
+<li>Filters: single click; keyboard shortcuts optional (1-4).</li>
+<li>Distance: slider drag; optional +/- buttons step <code>index_parsecs</code>.</li>
+<li>Brightness: slider drag; scroll wheel adjusts when cursor over slider.</li>
+<li>Help: collapsible footer shows key/scroll hints.</li>
+<li>Rendering approach:</li>
+<li>Pre-render static labels and panel background surfaces.</li>
+<li>Re-render only on state change (hover, selection, values).</li>
+<li>Implementation progress:</li>
+<li>Added HUD panel rendering, UI palette, and scalable layout in <code>src/starmaps/bco1.py</code>.</li>
+<li>Updated menu/button/slider styling to use the new palette and typography.</li>
+<li>Positioned header, filters label, distance/brightness labels, and help text inside the HUD.</li>
+<li>Unified distance control to discrete parsec steps across slider, arrow buttons, and +/- keys.</li>
+<li>Brightness slider now supports drag/hover scroll only when the cursor is over the slider.</li>
+<li>Slider rendering uses shared track/knob component with active-state styling.</li>
+<li>Cached HUD static surface and pre-rendered button/arrow surfaces; per-frame UI work now mostly blits.</li>
+<li>Added brightness +/- micro-controls and button cache surfaces.</li>
+<li>Added UI profiling hooks gated by <code>BCO_UI_PROFILE</code> and optional auto-exit frame count.</li>
+</ul>
+<h2>Validation</h2>
+<ul>
+<li>Pending: capture a profiling run with UI and frame averages.</li>
+<li>Run: <code>BCO_UI_PROFILE=1 BCO_UI_PROFILE_FRAMES=300 python3 scripts/run_bco1.py</code></li>
+<li>Record: average UI ms, average frame ms, FPS range, and dataset size used.</li>
+<li>Note: automated run attempt here aborted (Signal 6); run locally with a display.</li>
+</ul>
+<h2>Documentation updates</h2>
+<ul>
+<li>Pending.</li>
+</ul>
+<h2>Issues &amp; lessons</h2>
+<ul>
+<li>None logged yet.</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

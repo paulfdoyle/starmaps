@@ -1,4 +1,6 @@
 import pygame
+import os
+import time
 import pandas as pd
 import numpy as np
 import random
@@ -29,7 +31,7 @@ observerPOS = (0,0,1)
 output_dir = str(OUTPUT_DIR)
 global_timescale = load.timescale()
 pygame.font.init()
-menu_font = pygame.font.SysFont('Consolas', 14, bold=True)  # Further reduced font size to fit buttons
+menu_font = pygame.font.SysFont('Consolas', 14, bold=True)  # Replaced by refresh_ui_layout when HUD initializes
 # Slider parameters
 slider_x = 50
 slider_y = 800
@@ -82,6 +84,316 @@ FPS = 90  # Frames per second
 JSON_FILE = str(LEGACY_DATA_FILE)  # Legacy data path; prefer DEFAULT_DATA_FILE
 ScreenScaler = 0.9
 MAG_OFFSET = 0
+
+PROFILE_UI = os.environ.get("BCO_UI_PROFILE") == "1"
+PROFILE_INTERVAL_MS = 2000
+PROFILE_MAX_FRAMES = int(os.environ.get("BCO_UI_PROFILE_FRAMES", "0") or 0)
+
+UI_STYLE = {
+    "bg": (6, 10, 14),
+    "panel": (12, 16, 22, 200),
+    "panel_border": (255, 255, 255, 40),
+    "text": (230, 236, 244),
+    "text_muted": (168, 178, 191),
+    "accent": (76, 201, 240),
+    "accent_alt": (98, 245, 156),
+    "border": (60, 70, 84),
+}
+UI_LAYOUT = {}
+UI_CACHE = {
+    "panel_surface": None,
+    "panel_size": None,
+    "ui_scale": None,
+    "hud_static_surface": None,
+    "labels": None,
+    "menu_surfaces": None,
+    "exit_surfaces": None,
+    "arrow_surfaces": None,
+    "brightness_surfaces": None,
+}
+UI_FONTS = {}
+UI_FONT_PATHS = {
+    "regular": ASSETS_DIR / "fonts" / "SpaceGrotesk-Regular.ttf",
+    "medium": ASSETS_DIR / "fonts" / "SpaceGrotesk-Medium.ttf",
+}
+
+def clamp_value(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
+
+def get_ui_font(size, weight="regular"):
+    key = (size, weight)
+    cached = UI_FONTS.get(key)
+    if cached is not None:
+        return cached
+    path = UI_FONT_PATHS.get(weight)
+    if path and path.exists():
+        font = pygame.font.Font(str(path), size)
+    else:
+        font = pygame.font.Font(None, size)
+    UI_FONTS[key] = font
+    return font
+
+def compute_ui_scale(screen_width, screen_height):
+    return clamp_value(min(screen_width / 1280.0, screen_height / 720.0), 0.85, 1.2)
+
+def refresh_ui_layout(screen_width, screen_height):
+    global slider_x, slider_y, slider_width, slider_height, circle_y
+    global BRIGHTNESS_SLIDER_X, BRIGHTNESS_SLIDER_Y, BRIGHTNESS_SLIDER_WIDTH, BRIGHTNESS_SLIDER_HEIGHT
+    global MENU_LEFT_MARGIN, MENU_TOP_MARGIN, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, MENU_SPACING
+    global decrease_button_pos, increase_button_pos, arrow_button_width, arrow_button_height, menu_font
+    global circle_min_radius, circle_max_radius, BRIGHTNESS_CIRCLE_RADIUS, SLIDER_HIT_PADDING
+
+    ui_scale = compute_ui_scale(screen_width, screen_height)
+    if UI_LAYOUT.get("size") == (screen_width, screen_height) and UI_LAYOUT.get("scale") == ui_scale:
+        return False
+
+    panel_x = int(16 * ui_scale)
+    panel_y = int(16 * ui_scale)
+    panel_w = int(340 * ui_scale)
+    panel_h = int(screen_height * 0.88)
+    padding = int(16 * ui_scale)
+    section_gap = int(14 * ui_scale)
+    control_gap = int(10 * ui_scale)
+    brightness_button_size = int(26 * ui_scale)
+
+    header_h = int(52 * ui_scale)
+    content_x = panel_x + padding
+    content_y = panel_y + padding + header_h + section_gap
+    button_w = panel_w - 2 * padding
+    button_h = int(36 * ui_scale)
+    spacing = int(10 * ui_scale)
+
+    arrow_button_width = int(28 * ui_scale)
+    arrow_button_height = int(28 * ui_scale)
+
+    slider_width = button_w - (arrow_button_width * 2 + control_gap * 2)
+    slider_height = max(4, int(4 * ui_scale))
+    slider_x = content_x
+    slider_y = content_y + (button_h + spacing) * len(MENU_OPTIONS) + section_gap + int(22 * ui_scale)
+    circle_y = slider_y
+
+    circle_min_radius = int(8 * ui_scale)
+    circle_max_radius = int(8 * ui_scale)
+    BRIGHTNESS_CIRCLE_RADIUS = int(7 * ui_scale)
+    SLIDER_HIT_PADDING = int(12 * ui_scale)
+
+    decrease_button_pos = (
+        slider_x + slider_width + control_gap,
+        slider_y - arrow_button_height // 2,
+    )
+    increase_button_pos = (
+        slider_x + slider_width + control_gap + arrow_button_width + control_gap,
+        slider_y - arrow_button_height // 2,
+    )
+
+    BRIGHTNESS_SLIDER_WIDTH = button_w - (brightness_button_size * 2 + control_gap * 2)
+    BRIGHTNESS_SLIDER_HEIGHT = slider_height
+    BRIGHTNESS_SLIDER_X = content_x
+    BRIGHTNESS_SLIDER_Y = slider_y + int(46 * ui_scale)
+
+    brightness_decrease_pos = (
+        BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH + control_gap,
+        BRIGHTNESS_SLIDER_Y - brightness_button_size // 2,
+    )
+    brightness_increase_pos = (
+        BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH + control_gap + brightness_button_size + control_gap,
+        BRIGHTNESS_SLIDER_Y - brightness_button_size // 2,
+    )
+
+    MENU_LEFT_MARGIN = content_x
+    MENU_TOP_MARGIN = content_y
+    MENU_BUTTON_WIDTH = button_w
+    MENU_BUTTON_HEIGHT = button_h
+    MENU_SPACING = spacing
+
+    UI_LAYOUT.clear()
+    UI_LAYOUT.update(
+        {
+            "size": (screen_width, screen_height),
+            "scale": ui_scale,
+            "panel_rect": pygame.Rect(panel_x, panel_y, panel_w, panel_h),
+            "panel_padding": padding,
+            "header_pos": (content_x, panel_y + padding),
+            "status_pos": (content_x, panel_y + padding + int(26 * ui_scale)),
+            "label_gap": int(18 * ui_scale),
+        }
+    )
+
+    UI_FONTS["header"] = get_ui_font(int(22 * ui_scale), weight="medium")
+    UI_FONTS["section"] = get_ui_font(int(16 * ui_scale), weight="medium")
+    UI_FONTS["body"] = get_ui_font(int(14 * ui_scale), weight="regular")
+    UI_FONTS["micro"] = get_ui_font(int(12 * ui_scale), weight="regular")
+    UI_FONTS["button"] = get_ui_font(int(15 * ui_scale), weight="medium")
+    menu_font = UI_FONTS["button"]
+
+    label_gap = UI_LAYOUT["label_gap"]
+    filters_label_y = MENU_TOP_MARGIN - label_gap - UI_FONTS["section"].get_height()
+    distance_label_y = slider_y - label_gap - UI_FONTS["section"].get_height()
+    brightness_label_y = BRIGHTNESS_SLIDER_Y - label_gap - UI_FONTS["section"].get_height()
+    help_y = BRIGHTNESS_SLIDER_Y + int(24 * ui_scale)
+    exit_size = (int(120 * ui_scale), int(30 * ui_scale))
+    exit_pos = (panel_x + padding, panel_y + padding)
+
+    UI_LAYOUT.update(
+        {
+            "filters_label_pos": (MENU_LEFT_MARGIN, filters_label_y),
+            "distance_label_pos": (slider_x, distance_label_y),
+            "brightness_label_pos": (BRIGHTNESS_SLIDER_X, brightness_label_y),
+            "distance_value_right": slider_x + slider_width,
+            "brightness_value_right": BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH,
+            "help_1_pos": (BRIGHTNESS_SLIDER_X, help_y),
+            "help_2_pos": (BRIGHTNESS_SLIDER_X, help_y + UI_FONTS["micro"].get_height() + 4),
+            "exit_size": exit_size,
+            "exit_pos": exit_pos,
+            "brightness_button_size": brightness_button_size,
+            "brightness_dec_pos": brightness_decrease_pos,
+            "brightness_inc_pos": brightness_increase_pos,
+        }
+    )
+
+    panel_size = (panel_w, panel_h)
+    if UI_CACHE["panel_size"] != panel_size or UI_CACHE["ui_scale"] != ui_scale:
+        panel_surface = pygame.Surface(panel_size, pygame.SRCALPHA)
+        panel_surface.fill(UI_STYLE["panel"])
+        pygame.draw.rect(
+            panel_surface,
+            UI_STYLE["panel_border"],
+            panel_surface.get_rect(),
+            width=1,
+            border_radius=max(8, int(10 * ui_scale)),
+        )
+        UI_CACHE["panel_surface"] = panel_surface
+        UI_CACHE["panel_size"] = panel_size
+        UI_CACHE["ui_scale"] = ui_scale
+        UI_CACHE["hud_static_surface"] = None
+        UI_CACHE["menu_surfaces"] = None
+        UI_CACHE["exit_surfaces"] = None
+        UI_CACHE["arrow_surfaces"] = None
+        UI_CACHE["brightness_surfaces"] = None
+
+    build_ui_cache()
+
+    return True
+
+def render_ui_text(text, font, color):
+    return font.render(text, True, color)
+
+def build_ui_labels():
+    return {
+        "title": render_ui_text("BCO Star Map", UI_FONTS["header"], UI_STYLE["text"]),
+        "filters": render_ui_text("Filters", UI_FONTS["section"], UI_STYLE["text_muted"]),
+        "distance": render_ui_text("Distance (pc)", UI_FONTS["section"], UI_STYLE["text_muted"]),
+        "brightness": render_ui_text("Brightness", UI_FONTS["section"], UI_STYLE["text_muted"]),
+        "help_1": render_ui_text("R/T, +/- or scroll over slider to adjust brightness", UI_FONTS["micro"], UI_STYLE["text_muted"]),
+        "help_2": render_ui_text("Click a star to toggle info", UI_FONTS["micro"], UI_STYLE["text_muted"]),
+    }
+
+def build_button_surface(text, width, height, border_color, text_color, fill_color=None):
+    surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    rect = surface.get_rect()
+    if fill_color is not None:
+        pygame.draw.rect(surface, fill_color, rect, border_radius=10)
+    pygame.draw.rect(surface, border_color, rect, width=2, border_radius=10)
+    text_surface = UI_FONTS["button"].render(text, True, text_color)
+    text_rect = text_surface.get_rect(center=rect.center)
+    surface.blit(text_surface, text_rect)
+    return surface
+
+def build_arrow_surface(direction, width, height, border_color, arrow_color, fill_color=None):
+    surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    rect = surface.get_rect()
+    if fill_color is not None:
+        pygame.draw.rect(surface, fill_color, rect, border_radius=8)
+    pygame.draw.rect(surface, border_color, rect, width=2, border_radius=8)
+    if direction == "left":
+        points = [
+            (rect.centerx + 6, rect.centery - 6),
+            (rect.centerx - 6, rect.centery),
+            (rect.centerx + 6, rect.centery + 6),
+        ]
+    else:
+        points = [
+            (rect.centerx - 6, rect.centery - 6),
+            (rect.centerx + 6, rect.centery),
+            (rect.centerx - 6, rect.centery + 6),
+        ]
+    pygame.draw.polygon(surface, arrow_color, points)
+    return surface
+
+def build_ui_cache():
+    panel_rect = UI_LAYOUT.get("panel_rect")
+    panel_surface = UI_CACHE.get("panel_surface")
+    if panel_rect is None or panel_surface is None:
+        return
+
+    labels = build_ui_labels()
+    UI_CACHE["labels"] = labels
+
+    if UI_CACHE.get("hud_static_surface") is None:
+        hud_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        hud_surface.blit(panel_surface, (0, 0))
+        offset_x = panel_rect.x
+        offset_y = panel_rect.y
+        hud_surface.blit(labels["title"], (UI_LAYOUT["header_pos"][0] - offset_x, UI_LAYOUT["header_pos"][1] - offset_y))
+        hud_surface.blit(labels["filters"], (UI_LAYOUT["filters_label_pos"][0] - offset_x, UI_LAYOUT["filters_label_pos"][1] - offset_y))
+        hud_surface.blit(labels["distance"], (UI_LAYOUT["distance_label_pos"][0] - offset_x, UI_LAYOUT["distance_label_pos"][1] - offset_y))
+        hud_surface.blit(labels["brightness"], (UI_LAYOUT["brightness_label_pos"][0] - offset_x, UI_LAYOUT["brightness_label_pos"][1] - offset_y))
+        hud_surface.blit(labels["help_1"], (UI_LAYOUT["help_1_pos"][0] - offset_x, UI_LAYOUT["help_1_pos"][1] - offset_y))
+        hud_surface.blit(labels["help_2"], (UI_LAYOUT["help_2_pos"][0] - offset_x, UI_LAYOUT["help_2_pos"][1] - offset_y))
+        UI_CACHE["hud_static_surface"] = hud_surface
+
+    if UI_CACHE.get("menu_surfaces") is None:
+        menu_surfaces = {}
+        selected_fill = (*UI_STYLE["accent"], 40)
+        for index, option in enumerate(MENU_OPTIONS):
+            menu_surfaces[index] = {
+                "default": build_button_surface(option, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, UI_STYLE["border"], UI_STYLE["text_muted"]),
+                "hover": build_button_surface(option, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, UI_STYLE["accent_alt"], UI_STYLE["text"]),
+                "selected": build_button_surface(option, MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT, UI_STYLE["accent"], UI_STYLE["text"], fill_color=selected_fill),
+            }
+        UI_CACHE["menu_surfaces"] = menu_surfaces
+
+    if UI_CACHE.get("exit_surfaces") is None:
+        exit_size = UI_LAYOUT["exit_size"]
+        UI_CACHE["exit_surfaces"] = {
+            "default": build_button_surface("Exit (Esc)", exit_size[0], exit_size[1], UI_STYLE["border"], UI_STYLE["text_muted"]),
+            "hover": build_button_surface("Exit (Esc)", exit_size[0], exit_size[1], UI_STYLE["accent_alt"], UI_STYLE["text"]),
+        }
+
+    if UI_CACHE.get("arrow_surfaces") is None:
+        UI_CACHE["arrow_surfaces"] = {
+            "left": {
+                "default": build_arrow_surface("left", arrow_button_width, arrow_button_height, UI_STYLE["border"], UI_STYLE["text"]),
+                "hover": build_arrow_surface("left", arrow_button_width, arrow_button_height, UI_STYLE["accent"], UI_STYLE["text"]),
+            },
+            "right": {
+                "default": build_arrow_surface("right", arrow_button_width, arrow_button_height, UI_STYLE["border"], UI_STYLE["text"]),
+                "hover": build_arrow_surface("right", arrow_button_width, arrow_button_height, UI_STYLE["accent"], UI_STYLE["text"]),
+            },
+        }
+
+    if UI_CACHE.get("brightness_surfaces") is None:
+        size = UI_LAYOUT.get("brightness_button_size", 26)
+        UI_CACHE["brightness_surfaces"] = {
+            "dec": {
+                "default": build_button_surface("-", size, size, UI_STYLE["border"], UI_STYLE["text_muted"]),
+                "hover": build_button_surface("-", size, size, UI_STYLE["accent_alt"], UI_STYLE["text"]),
+            },
+            "inc": {
+                "default": build_button_surface("+", size, size, UI_STYLE["border"], UI_STYLE["text_muted"]),
+                "hover": build_button_surface("+", size, size, UI_STYLE["accent_alt"], UI_STYLE["text"]),
+            },
+        }
+
+def draw_hud_panel(surface):
+    panel_rect = UI_LAYOUT.get("panel_rect")
+    hud_surface = UI_CACHE.get("hud_static_surface")
+    if panel_rect and hud_surface:
+        surface.blit(hud_surface, panel_rect.topleft)
+        return
+    panel_surface = UI_CACHE.get("panel_surface")
+    if panel_surface and panel_rect:
+        surface.blit(panel_surface, panel_rect.topleft)
 
 # These index constants are assignment order dependent. Change with caution
 class SIndex:
@@ -249,6 +561,12 @@ def update_brightness_offset_from_mouse(mouse_x):
     clamped_x = max(BRIGHTNESS_SLIDER_X, min(mouse_x, BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH))
     ratio = (clamped_x - BRIGHTNESS_SLIDER_X) / BRIGHTNESS_SLIDER_WIDTH
     return int(round(BRIGHTNESS_MIN + ratio * (BRIGHTNESS_MAX - BRIGHTNESS_MIN)))
+
+def is_point_on_slider(mouse_x, mouse_y, slider_start_x, slider_center_y, slider_width, hit_padding):
+    return (
+        slider_start_x <= mouse_x <= slider_start_x + slider_width
+        and slider_center_y - hit_padding <= mouse_y <= slider_center_y + hit_padding
+    )
 
 
 # Convert the dictionary to arrays for Numba compatibility
@@ -824,7 +1142,9 @@ def initialise_control_varaiables():
         'Position':   (0,0,20),
         'sphere': 20,
         'filter_mode': len(MENU_OPTIONS) - 1,
-        'scale': 0 # The scale needs to be worked out based on the radius of the frame circle. 
+        'scale': 0, # The scale needs to be worked out based on the radius of the frame circle.
+        'dragging_distance': False,
+        'dragging_brightness': False,
 
     }
     return control_vars
@@ -1683,10 +2003,22 @@ def showFPS(FPS_text,frame_count,start_time):
 
 
 # Handle the keyboard events
-def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotate,x_offset,y_offset,canvas_scale,parsecs_changed,decrease_button_rect,increase_button_rect,mouse_held,last_repeat_time,quit_button_rect,menu_rects):
+def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotate,x_offset,y_offset,canvas_scale,parsecs_changed,decrease_button_rect,increase_button_rect,brightness_dec_rect,brightness_inc_rect,mouse_held,last_repeat_time,quit_button_rect,menu_rects):
     global observerPOS, circle_x, circle_radius
-    scaling_factor = 1.05
-    max_parsecs = 1500
+    max_index = max(0, control_vars.get('MaxParsecIndex', 1) - 1)
+
+    def apply_view_scale_change(delta):
+        nonlocal parsecs, parsecs_changed
+        view_index = max(0, min(max_index, control_vars['ViewScale'] + delta))
+        if view_index != control_vars['ViewScale']:
+            control_vars['ViewScale'] = view_index
+            parsecs = get_pasec_from_index(view_index)
+            control_vars['Position'] = (0, 0, parsecs)
+            observerPOS = (0, 0, parsecs)
+            parsecs_changed = True
+            slider_progress = 1 - (view_index / max_index) if max_index > 0 else 1
+            circle_x = slider_x + slider_progress * slider_width
+            circle_radius = circle_max_radius
 
     scaled_mouse_x,scaled_mouse_y = None, None
     clearInfo = False
@@ -1702,12 +2034,20 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
             #control_vars, parsecs = menu.handle_mouse_click((scaled_mouse_x,scaled_mouse_y),control_vars, parsecs)
 
             if event.button in (4, 5):
-                if event.button == 4:
-                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
-                else:
-                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
-                control_vars['brightness_changed'] = True
-                continue
+                if is_point_on_slider(
+                    mouse_x,
+                    mouse_y,
+                    BRIGHTNESS_SLIDER_X,
+                    BRIGHTNESS_SLIDER_Y,
+                    BRIGHTNESS_SLIDER_WIDTH,
+                    SLIDER_HIT_PADDING,
+                ):
+                    if event.button == 4:
+                        control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
+                    else:
+                        control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
+                    control_vars['brightness_changed'] = True
+                    continue
 
             if quit_button_rect and quit_button_rect.collidepoint(mouse_x, mouse_y):
                 pygame.quit()
@@ -1717,19 +2057,16 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                 click_consumed = False
                 change = handle_arrow_click(event, decrease_button_rect, increase_button_rect)
                 if change != 0:
-                    if change < 0:
-                        parsecs *= scaling_factor  # Decrease button clicked
-                    elif change > 0:
-                        parsecs *= 1 / scaling_factor  # Increase button clicked
-                    parsecs_changed = True
+                    apply_view_scale_change(-1 if change < 0 else 1)
+                    click_consumed = True
 
-                    if parsecs > max_parsecs:
-                        parsecs = max_parsecs
-                    if parsecs <= 0:
-                        parsecs = 1
-
-                    control_vars['Position'] = (0, 0, parsecs)
-                    observerPOS = (0, 0, parsecs)
+                if brightness_dec_rect.collidepoint(mouse_x, mouse_y):
+                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
+                    control_vars['brightness_changed'] = True
+                    click_consumed = True
+                elif brightness_inc_rect.collidepoint(mouse_x, mouse_y):
+                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
+                    control_vars['brightness_changed'] = True
                     click_consumed = True
 
                 for index, rect in enumerate(menu_rects):
@@ -1740,25 +2077,35 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                         click_consumed = True
                         break
 
-                is_on_slider = (
-                    slider_x <= mouse_x <= slider_x + slider_width
-                    and slider_y - SLIDER_HIT_PADDING <= mouse_y <= slider_y + SLIDER_HIT_PADDING
+                is_on_distance = is_point_on_slider(
+                    mouse_x,
+                    mouse_y,
+                    slider_x,
+                    slider_y,
+                    slider_width,
+                    SLIDER_HIT_PADDING,
                 )
-                if is_on_slider and not decrease_button_rect.collidepoint(mouse_x, mouse_y) and not increase_button_rect.collidepoint(mouse_x, mouse_y):
-                    circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x)
+                if is_on_distance and not decrease_button_rect.collidepoint(mouse_x, mouse_y) and not increase_button_rect.collidepoint(mouse_x, mouse_y):
+                    control_vars['dragging_distance'] = True
+                    circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x, max_index)
                     if control_vars['ViewScale'] != position_value:
-                        parsecs_changed = True
                         control_vars['ViewScale'] = position_value
                         parsecs = get_pasec_from_index(control_vars['ViewScale'])
                         control_vars['Position'] = (0, 0, parsecs)
                         observerPOS = (0, 0, parsecs)
+                        parsecs_changed = True
                     click_consumed = True
 
-                is_on_brightness = (
-                    BRIGHTNESS_SLIDER_X <= mouse_x <= BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH
-                    and BRIGHTNESS_SLIDER_Y - SLIDER_HIT_PADDING <= mouse_y <= BRIGHTNESS_SLIDER_Y + SLIDER_HIT_PADDING
+                is_on_brightness = is_point_on_slider(
+                    mouse_x,
+                    mouse_y,
+                    BRIGHTNESS_SLIDER_X,
+                    BRIGHTNESS_SLIDER_Y,
+                    BRIGHTNESS_SLIDER_WIDTH,
+                    SLIDER_HIT_PADDING,
                 )
                 if is_on_brightness:
+                    control_vars['dragging_brightness'] = True
                     control_vars['MagOffset'] = clamp_mag_offset(update_brightness_offset_from_mouse(mouse_x))
                     control_vars['brightness_changed'] = True
                     click_consumed = True
@@ -1769,33 +2116,34 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
 
         if event.type == pygame.MOUSEMOTION and mouse_held:
             mouse_x, mouse_y = event.pos
-            is_on_slider = (
-                slider_x <= mouse_x <= slider_x + slider_width
-                and slider_y - SLIDER_HIT_PADDING <= mouse_y <= slider_y + SLIDER_HIT_PADDING
-            )
-            if is_on_slider and not decrease_button_rect.collidepoint(mouse_x, mouse_y) and not increase_button_rect.collidepoint(mouse_x, mouse_y):
-                circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x)
+            if control_vars.get('dragging_distance'):
+                circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x, max_index)
                 if control_vars['ViewScale'] != position_value:
-                    parsecs_changed = True
                     control_vars['ViewScale'] = position_value
                     parsecs = get_pasec_from_index(control_vars['ViewScale'])
                     control_vars['Position'] = (0, 0, parsecs)
                     observerPOS = (0, 0, parsecs)
+                    parsecs_changed = True
 
-            is_on_brightness = (
-                BRIGHTNESS_SLIDER_X <= mouse_x <= BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH
-                and BRIGHTNESS_SLIDER_Y - SLIDER_HIT_PADDING <= mouse_y <= BRIGHTNESS_SLIDER_Y + SLIDER_HIT_PADDING
-            )
-            if is_on_brightness:
+            if control_vars.get('dragging_brightness'):
                 control_vars['MagOffset'] = clamp_mag_offset(update_brightness_offset_from_mouse(mouse_x))
                 control_vars['brightness_changed'] = True
 
         if event.type == pygame.MOUSEWHEEL:
-            if event.y > 0:
-                control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
-            elif event.y < 0:
-                control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
-            control_vars['brightness_changed'] = True
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            if is_point_on_slider(
+                mouse_x,
+                mouse_y,
+                BRIGHTNESS_SLIDER_X,
+                BRIGHTNESS_SLIDER_Y,
+                BRIGHTNESS_SLIDER_WIDTH,
+                SLIDER_HIT_PADDING,
+            ):
+                if event.y > 0:
+                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
+                elif event.y < 0:
+                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
+                control_vars['brightness_changed'] = True
 
 
            # Handle mouse down and mouse up events
@@ -1803,6 +2151,8 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
             mouse_held = True
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:  # Left mouse button up
             mouse_held = False
+            control_vars['dragging_distance'] = False
+            control_vars['dragging_brightness'] = False
             print ("Setting False")
 
  
@@ -1816,30 +2166,20 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                 control_vars['MagType'] = "APP" if control_vars['MagType'] == "REL" else "REL"
 
             if event.key == pygame.K_MINUS:
-                parsecs_changed = True
-                parsecs *= scaling_factor
-                if parsecs > max_parsecs:
-                    parsecs = max_parsecs
-                control_vars['Position'] = (0, 0, parsecs)
-                observerPOS = (0, 0, parsecs)
+                apply_view_scale_change(1)
 
             if event.key == pygame.K_EQUALS:
-                parsecs_changed = True
-                parsecs *= 1 / scaling_factor
-                if parsecs <= 0:
-                    parsecs = 1
-                control_vars['Position'] = (0, 0, parsecs)
-                observerPOS = (0, 0, parsecs)
+                apply_view_scale_change(-1)
 
             if event.key in key_to_scale:
 
-                parsecs_changed = True
                 control_vars['ViewScale'] = key_to_scale[event.key]
                 parsecs = get_pasec_from_index(control_vars['ViewScale'])
                 control_vars['Position'] = (0, 0, parsecs)
                 observerPOS = (0, 0, parsecs)
-                view_index = max(0, min(9, control_vars['ViewScale']))
-                slider_progress = 1 - (view_index / 9)
+                parsecs_changed = True
+                view_index = max(0, min(max_index, control_vars['ViewScale']))
+                slider_progress = 1 - (view_index / max_index) if max_index > 0 else 1
                 circle_x = slider_x + slider_progress * slider_width
                 circle_radius = circle_max_radius - (circle_max_radius - circle_min_radius) * slider_progress
 
@@ -1898,27 +2238,14 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
 
 
    # Handle auto-repeat while mouse is held down
-    if mouse_held:
+    if mouse_held and not control_vars.get('dragging_distance'):
         mouse_pos = pygame.mouse.get_pos()  # Get the current mouse position
         change, last_repeat_time = handle_arrow_hold(mouse_pos, decrease_button_rect, increase_button_rect, last_repeat_time)
 
         if change != 0:
             print(f"Change: {change}")  # Output 1 for increase, -1 for decrease
 
-            if change < 0:
-                parsecs *= scaling_factor  # Decrease button held
-            elif change > 0:
-                parsecs *= 1 / scaling_factor  # Increase button held
-                        
-            parsecs_changed = True  # Indicate that parsecs has changed
-            
-            if parsecs > max_parsecs:
-                parsecs = max_parsecs
-            if parsecs <= 0:
-                parsecs = 1
-
-            control_vars['Position'] = (0, 0, parsecs)
-            observerPOS = (0, 0, parsecs)
+            apply_view_scale_change(-1 if change < 0 else 1)
     return True, parsecs, current_orientation, rotate,scaled_mouse_x, scaled_mouse_y,clearInfo, parsecs_changed, mouse_held, last_repeat_time
 
 def count_stars(sprite_group):
@@ -1976,23 +2303,23 @@ def draw_rounded_border_button(screen, text, rect, border_color, is_hovered, is_
     """
     # If hovered or selected, make the border color brighter and update text color
     if is_selected:
-        button_border_color = CIndex.GREEN2
-        text_color = CIndex.LIGHTCYAN
+        button_border_color = UI_STYLE["accent"]
+        text_color = UI_STYLE["text"]
     elif is_hovered:
-        button_border_color = (border_color[0], border_color[1], border_color[2], 255)  # Fully opaque border on hover
-        text_color = CIndex.CYAN # Change text color to cyan when hovered
+        button_border_color = UI_STYLE["accent_alt"]
+        text_color = UI_STYLE["text"]
     else:
         button_border_color = border_color
-        text_color = CIndex.WHITE  # Default text color is white
+        text_color = UI_STYLE["text_muted"]
 
     # Draw the rounded rectangle border (directly on the screen)
-    pygame.draw.rect(screen, button_border_color, rect, width=3, border_radius=15)
+    pygame.draw.rect(screen, button_border_color, rect, width=2, border_radius=10)
     
     # Render the text with hover effect
     text_surface = menu_font.render(text, True, text_color)
     
     # Make sure there is no unwanted background by setting the colorkey
-    text_surface.set_colorkey((0, 0, 0))  # Ensuring transparency for black (or any specific color)
+    text_surface.set_colorkey((0, 0, 0))
 
     # Center the text inside the button rectangle
     text_rect = text_surface.get_rect(center=rect.center)
@@ -2022,7 +2349,17 @@ def draw_futuristic_menu(screen, selected_index, menu_rects):
         rect = menu_rects[index]
         is_hovered = rect.collidepoint(mouse_x, mouse_y)
         is_selected = index == selected_index
-        draw_rounded_border_button(screen, option, rect, CIndex.GREEN3, is_hovered, is_selected)
+        menu_surfaces = UI_CACHE.get("menu_surfaces")
+        if menu_surfaces:
+            if is_selected:
+                state = "selected"
+            elif is_hovered:
+                state = "hover"
+            else:
+                state = "default"
+            screen.blit(menu_surfaces[index][state], rect.topleft)
+        else:
+            draw_rounded_border_button(screen, option, rect, UI_STYLE["border"], is_hovered, is_selected)
         if is_hovered:
             hovered_index = index
 
@@ -2031,7 +2368,12 @@ def draw_futuristic_menu(screen, selected_index, menu_rects):
 
 def draw_exit_button(screen, rect):
     is_hovered = rect.collidepoint(pygame.mouse.get_pos())
-    draw_rounded_border_button(screen, "Exit (Esc)", rect, CIndex.RED, is_hovered)
+    exit_surfaces = UI_CACHE.get("exit_surfaces")
+    if exit_surfaces:
+        state = "hover" if is_hovered else "default"
+        screen.blit(exit_surfaces[state], rect.topleft)
+    else:
+        draw_rounded_border_button(screen, "Exit (Esc)", rect, UI_STYLE["accent_alt"], is_hovered)
 
 def draw_arrow_button(screen, rect, direction, is_hovered):
     """
@@ -2043,13 +2385,17 @@ def draw_arrow_button(screen, rect, direction, is_hovered):
     - direction: "left" for decrease arrow or "right" for increase arrow.
     - is_hovered: Boolean indicating whether the mouse is hovering over the button.
     """
-    border_color = CIndex.GREEN if not is_hovered else CIndex.GREEN3  # Green color
-    arrow_color = (255, 255, 255)  # White color for the arrow
+    arrow_surfaces = UI_CACHE.get("arrow_surfaces")
+    if arrow_surfaces:
+        state = "hover" if is_hovered else "default"
+        screen.blit(arrow_surfaces[direction][state], rect.topleft)
+        return
 
-    # Draw the rounded rectangle border
-    pygame.draw.rect(screen, border_color, rect, width=3, border_radius=15)
+    border_color = UI_STYLE["accent"] if is_hovered else UI_STYLE["border"]
+    arrow_color = UI_STYLE["text"]
 
-    # Draw the arrow
+    pygame.draw.rect(screen, border_color, rect, width=2, border_radius=8)
+
     if direction == "left":
         pygame.draw.polygon(screen, arrow_color, [
             (rect.centerx + 10, rect.centery - 10),
@@ -2091,50 +2437,74 @@ def handle_arrow_click(event, decrease_button_rect, increase_button_rect):
 
 
 
-def update_circle_position_and_size(mouse_x):
+def update_circle_position_and_size(mouse_x, max_index):
     """
     Updates the circle's position and decreases its size as it moves to the right.
     Additionally, returns a value from 9 (large circle) to 0 (small circle) based on the circle's position along the slider.
     """
-    # Keep the circle within the bounds of the slider
-    new_circle_x = max(slider_x, min(mouse_x, slider_x + slider_width))
-    
-    # Calculate the size reduction based on the position
-    slider_progress = (new_circle_x - slider_x) / slider_width
-    new_circle_radius = circle_max_radius - (circle_max_radius - circle_min_radius) * slider_progress
+    if max_index <= 0:
+        return slider_x, circle_max_radius, 0
 
-    # Calculate the position value from 9 to 0
-    position_value = int((1 - slider_progress) * 9)  # Inverse the progress to map it from 9 to 0
+    new_circle_x = max(slider_x, min(mouse_x, slider_x + slider_width))
+    slider_progress = (new_circle_x - slider_x) / slider_width
+    position_value = int(round((1 - slider_progress) * max_index))
+    position_value = max(0, min(max_index, position_value))
+
+    snapped_progress = 1 - (position_value / max_index)
+    new_circle_x = slider_x + snapped_progress * slider_width
+    new_circle_radius = circle_max_radius
 
     return new_circle_x, new_circle_radius, position_value
 
 
 # Function to handle the slider and moving circle
-def handle_slider(screen, circle_x, circle_radius):
-    """
-    Handles drawing the slider and moving the circle based on mouse hover interaction.
-    """
-    # Draw the slider line
-    pygame.draw.line(screen, CIndex.GREEN3, (slider_x, slider_y), (slider_x + slider_width, slider_y), slider_height)
-
-    # Draw the moving circle
-    pygame.draw.circle(screen, CIndex.GREEN3, (circle_x, circle_y), circle_radius)
-
-def draw_brightness_slider(screen, mag_offset):
-    knob_x = brightness_offset_to_x(mag_offset)
+def draw_slider_track(screen, slider_start_x, slider_center_y, slider_width, track_height, knob_x, knob_radius, active=False):
+    track_color = UI_STYLE["border"]
+    fill_color = UI_STYLE["accent"]
+    knob_color = UI_STYLE["accent_alt"] if active else UI_STYLE["accent"]
     pygame.draw.line(
         screen,
-        CIndex.GREEN3,
-        (BRIGHTNESS_SLIDER_X, BRIGHTNESS_SLIDER_Y),
-        (BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH, BRIGHTNESS_SLIDER_Y),
-        BRIGHTNESS_SLIDER_HEIGHT,
+        track_color,
+        (slider_start_x, slider_center_y),
+        (slider_start_x + slider_width, slider_center_y),
+        track_height,
     )
-    pygame.draw.circle(
+    pygame.draw.line(
         screen,
-        CIndex.GREEN3,
-        (int(knob_x), BRIGHTNESS_SLIDER_Y),
-        BRIGHTNESS_CIRCLE_RADIUS,
+        fill_color,
+        (slider_start_x, slider_center_y),
+        (knob_x, slider_center_y),
+        track_height,
     )
+    pygame.draw.circle(screen, knob_color, (int(knob_x), int(slider_center_y)), knob_radius)
+
+def draw_distance_slider(screen, circle_x, circle_radius, active=False):
+    draw_slider_track(screen, slider_x, slider_y, slider_width, slider_height, circle_x, circle_radius, active=active)
+
+def draw_brightness_slider(screen, mag_offset, active=False):
+    knob_x = brightness_offset_to_x(mag_offset)
+    draw_slider_track(
+        screen,
+        BRIGHTNESS_SLIDER_X,
+        BRIGHTNESS_SLIDER_Y,
+        BRIGHTNESS_SLIDER_WIDTH,
+        BRIGHTNESS_SLIDER_HEIGHT,
+        knob_x,
+        BRIGHTNESS_CIRCLE_RADIUS,
+        active=active,
+    )
+
+def draw_brightness_buttons(screen, dec_rect, inc_rect):
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    dec_hover = dec_rect.collidepoint(mouse_x, mouse_y)
+    inc_hover = inc_rect.collidepoint(mouse_x, mouse_y)
+    surfaces = UI_CACHE.get("brightness_surfaces")
+    if surfaces:
+        screen.blit(surfaces["dec"]["hover" if dec_hover else "default"], dec_rect.topleft)
+        screen.blit(surfaces["inc"]["hover" if inc_hover else "default"], inc_rect.topleft)
+        return
+    draw_rounded_border_button(screen, "-", dec_rect, UI_STYLE["border"], dec_hover)
+    draw_rounded_border_button(screen, "+", inc_rect, UI_STYLE["border"], inc_hover)
 
 
 @profile
@@ -2143,6 +2513,8 @@ def main():
     # bestHeight is set as the width and height of the display screen
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     screen, clock, bestHeight = initialize_pygame()
+    refresh_ui_layout(screen.get_width(), screen.get_height())
+    ui_scale = UI_LAYOUT.get("scale", 1.0)
     canvas_width = bestHeight
     # This is the main surface for all drawing
     #canvas = create_canvas()
@@ -2154,7 +2526,9 @@ def main():
     # Define the rectangles for the buttons
     decrease_button_rect = pygame.Rect(decrease_button_pos, (arrow_button_width, arrow_button_height))
     increase_button_rect = pygame.Rect(increase_button_pos, (arrow_button_width, arrow_button_height))
-    quit_button_rect = pygame.Rect(20, 20, 140, 40)
+    quit_button_rect = pygame.Rect(UI_LAYOUT["exit_pos"], UI_LAYOUT["exit_size"])
+    brightness_dec_rect = pygame.Rect(UI_LAYOUT["brightness_dec_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
+    brightness_inc_rect = pygame.Rect(UI_LAYOUT["brightness_inc_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
     menu_rects = build_menu_rects()
 
     mouse_held = False  # Track if the mouse button is being held
@@ -2223,18 +2597,22 @@ def main():
     running = True
     pygame.key.set_repeat(200, 25)
     FPS_text = f"Actual FPS: 0"
-    static_text_surfaces = {
-        "exoplanets": writeText("View Stars with ExoPlanets", CIndex.WHITE, FIndex.VERYSMALL),
-        "earth_like": writeText("View Earth Like Stars", CIndex.WHITE, FIndex.VERYSMALL),
-    }
-    parsec_text = f"Distance in Parsecs: {parsecs:.2f}"
-    parsec_surface = writeText(parsec_text, CIndex.WHITE, FIndex.VERYSMALL)
+    parsec_text = f"Distance: {parsecs:.1f} pc"
+    parsec_surface = render_ui_text(parsec_text, UI_FONTS["body"], UI_STYLE["text"])
     last_parsec_text = parsec_text
-    fps_surface = writeText(FPS_text, CIndex.WHITE, FIndex.VERYSMALL)
+    fps_surface = render_ui_text(FPS_text, UI_FONTS["micro"], UI_STYLE["text_muted"])
     last_fps_text = FPS_text
-    brightness_text = f"Brightness Offset (R/T/Scroll/Drag): {control_vars['MagOffset']:+d}"
-    brightness_surface = writeText(brightness_text, CIndex.WHITE, FIndex.VERYSMALL)
+    brightness_text = f"Brightness: {control_vars['MagOffset']:+d}"
+    brightness_surface = render_ui_text(brightness_text, UI_FONTS["body"], UI_STYLE["text"])
     last_brightness_text = brightness_text
+
+    profile_state = {
+        "ui_total": 0.0,
+        "frame_total": 0.0,
+        "count": 0,
+        "frames": 0,
+        "last_report": pygame.time.get_ticks(),
+    }
 
     x_offset,y_offset,canvas_scale = (0,0,1)
     response= ""
@@ -2248,19 +2626,43 @@ def main():
     last_observer_pos = observerPOS
     last_mag_offset = control_vars['MagOffset']
     # Initialize circle_x and circle_radius to match the current view scale
-    view_index = max(0, min(9, control_vars['ViewScale']))
-    slider_progress = 1 - (view_index / 9)
+    max_index = max(0, control_vars['MaxParsecIndex'] - 1)
+    view_index = max(0, min(max_index, control_vars['ViewScale']))
+    slider_progress = 1 - (view_index / max_index) if max_index > 0 else 1
     circle_x = slider_x + slider_progress * slider_width
     circle_radius = circle_max_radius - (circle_max_radius - circle_min_radius) * slider_progress
 
     while running:
         clock.tick(FPS)
+        if PROFILE_UI:
+            frame_start = time.perf_counter()
+            ui_time = 0.0
+        layout_changed = refresh_ui_layout(screen.get_width(), screen.get_height())
+        if layout_changed:
+            ui_scale = UI_LAYOUT.get("scale", 1.0)
+            decrease_button_rect = pygame.Rect(decrease_button_pos, (arrow_button_width, arrow_button_height))
+            increase_button_rect = pygame.Rect(increase_button_pos, (arrow_button_width, arrow_button_height))
+            quit_button_rect = pygame.Rect(UI_LAYOUT["exit_pos"], UI_LAYOUT["exit_size"])
+            brightness_dec_rect = pygame.Rect(UI_LAYOUT["brightness_dec_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
+            brightness_inc_rect = pygame.Rect(UI_LAYOUT["brightness_inc_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
+            menu_rects = build_menu_rects()
+            max_index = max(0, control_vars['MaxParsecIndex'] - 1)
+            view_index = max(0, min(max_index, control_vars['ViewScale']))
+            slider_progress = 1 - (view_index / max_index) if max_index > 0 else 1
+            circle_x = slider_x + slider_progress * slider_width
+            circle_radius = circle_max_radius - (circle_max_radius - circle_min_radius) * slider_progress
+            last_parsec_text = ""
+            last_fps_text = ""
+            last_brightness_text = ""
 
         # check for key input
-        running, parsecs, current_orientation,rotated,mouse_x,mouse_y,clearInfo, parsecs_changed, mouse_held,last_repeat_time = handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotated,x_offset,y_offset,canvas_scale,parsecs_changed, decrease_button_rect, increase_button_rect,mouse_held,last_repeat_time, quit_button_rect, menu_rects)
+        running, parsecs, current_orientation,rotated,mouse_x,mouse_y,clearInfo, parsecs_changed, mouse_held,last_repeat_time = handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotated,x_offset,y_offset,canvas_scale,parsecs_changed, decrease_button_rect, increase_button_rect, brightness_dec_rect, brightness_inc_rect, mouse_held,last_repeat_time, quit_button_rect, menu_rects)
         MAG_OFFSET = control_vars['MagOffset']
         if running:
-            canvas.fill((0, 0, 0))
+            canvas.fill(UI_STYLE["bg"])
+            if PROFILE_UI:
+                ui_start = time.perf_counter()
+            draw_hud_panel(canvas)
 
  
 
@@ -2286,8 +2688,11 @@ def main():
             selected_filter = control_vars['filter_mode']
             draw_futuristic_menu(canvas, selected_filter, menu_rects)
             draw_exit_button(canvas, quit_button_rect)
-            handle_slider(canvas, circle_x, circle_radius)
-            draw_brightness_slider(canvas, control_vars['MagOffset'])
+            draw_distance_slider(canvas, circle_x, circle_radius, active=control_vars.get('dragging_distance'))
+            draw_brightness_slider(canvas, control_vars['MagOffset'], active=control_vars.get('dragging_brightness'))
+            draw_brightness_buttons(canvas, brightness_dec_rect, brightness_inc_rect)
+            if PROFILE_UI:
+                ui_time += time.perf_counter() - ui_start
 
             mouse_pos = pygame.mouse.get_pos()
             draw_arrow_button(canvas, decrease_button_rect, "left", decrease_button_rect.collidepoint(mouse_pos))
@@ -2380,29 +2785,67 @@ def main():
             infoSpriteGroup.drawInfo(canvas,parsecs)
 
             FPS_text, frame_count,start_time = showFPS(FPS_text,frame_count,start_time)
-            parsec_text = f"Distance in Parsecs: {parsecs:.2f}"
+            parsec_text = f"Distance: {parsecs:.1f} pc"
             if parsec_text != last_parsec_text:
-                parsec_surface = writeText(parsec_text, CIndex.WHITE, FIndex.VERYSMALL)
+                parsec_surface = render_ui_text(parsec_text, UI_FONTS["body"], UI_STYLE["text"])
                 last_parsec_text = parsec_text
             if FPS_text != last_fps_text:
-                fps_surface = writeText(FPS_text, CIndex.WHITE, FIndex.VERYSMALL)
+                fps_surface = render_ui_text(FPS_text, UI_FONTS["micro"], UI_STYLE["text_muted"])
                 last_fps_text = FPS_text
-            brightness_text = f"Brightness Offset (R/T/Scroll/Drag): {control_vars['MagOffset']:+d}"
+            brightness_text = f"Brightness: {control_vars['MagOffset']:+d}"
             if brightness_text != last_brightness_text:
-                brightness_surface = writeText(brightness_text, CIndex.WHITE, FIndex.VERYSMALL)
+                brightness_surface = render_ui_text(brightness_text, UI_FONTS["body"], UI_STYLE["text"])
                 last_brightness_text = brightness_text
+            if PROFILE_UI:
+                ui_start = time.perf_counter()
+            status_x, status_y = UI_LAYOUT.get("status_pos", (20, 48))
+            canvas.blit(fps_surface, (status_x, status_y))
 
-            canvas.blit(parsec_surface, (100,100))
-            canvas.blit(fps_surface, (100,120))
-            canvas.blit(static_text_surfaces["exoplanets"], (100,140))
-            canvas.blit(static_text_surfaces["earth_like"], (100,160))
-            canvas.blit(brightness_surface, (100,180))
+            distance_label_y = UI_LAYOUT.get("distance_label_pos", (slider_x, slider_y))[1]
+            distance_value_right = UI_LAYOUT.get("distance_value_right", slider_x + slider_width)
+            canvas.blit(
+                parsec_surface,
+                (distance_value_right - parsec_surface.get_width(), distance_label_y),
+            )
+
+            brightness_label_y = UI_LAYOUT.get("brightness_label_pos", (BRIGHTNESS_SLIDER_X, BRIGHTNESS_SLIDER_Y))[1]
+            brightness_value_right = UI_LAYOUT.get("brightness_value_right", BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH)
+            canvas.blit(
+                brightness_surface,
+                (
+                    brightness_value_right - brightness_surface.get_width(),
+                    brightness_label_y,
+                ),
+            )
+            if PROFILE_UI:
+                ui_time += time.perf_counter() - ui_start
              
  #           x_offset, y_offset, canvas_scale = drawScreenUpdate(screen, canvas, bestHeight)
  #           text_rect = pygame.Rect(10, 10, 700, 500)  # Define the area for text
  #           render_text(screen, response, font, CIndex.WHITE, text_rect, text_rect.width)
 
             pygame.display.flip()
+            if PROFILE_UI:
+                frame_end = time.perf_counter()
+                profile_state["ui_total"] += ui_time * 1000
+                profile_state["frame_total"] += (frame_end - frame_start) * 1000
+                profile_state["count"] += 1
+                profile_state["frames"] += 1
+                now_ms = pygame.time.get_ticks()
+                if now_ms - profile_state["last_report"] >= PROFILE_INTERVAL_MS:
+                    avg_ui = profile_state["ui_total"] / profile_state["count"]
+                    avg_frame = profile_state["frame_total"] / profile_state["count"]
+                    print(f"[UI profile] avg ui {avg_ui:.2f} ms | avg frame {avg_frame:.2f} ms | samples {profile_state['count']}")
+                    profile_state["ui_total"] = 0.0
+                    profile_state["frame_total"] = 0.0
+                    profile_state["count"] = 0
+                    profile_state["last_report"] = now_ms
+                if PROFILE_MAX_FRAMES and profile_state["frames"] >= PROFILE_MAX_FRAMES:
+                    if profile_state["count"]:
+                        avg_ui = profile_state["ui_total"] / profile_state["count"]
+                        avg_frame = profile_state["frame_total"] / profile_state["count"]
+                        print(f"[UI profile] final avg ui {avg_ui:.2f} ms | avg frame {avg_frame:.2f} ms | samples {profile_state['count']}")
+                    running = False
 
         else:
             print("Ending simulation")

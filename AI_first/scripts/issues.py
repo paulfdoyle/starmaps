@@ -21,8 +21,11 @@ PROJECT_PREFIXES = {
     "bugmgmt": "BMG",
     "project_management": "PMG",
     "reporestructure": "RPR",
+    "ui_redesign": "UIR",
 }
-PROJECT_OWNERS = {}
+PROJECT_OWNERS = {
+    "ui_redesign": "Paul Doyle",
+}
 ID_PATTERN = re.compile(r"^(?P<prefix>[A-Z0-9]+)-(?P<year>\d{4})-(?P<month>\d{2})-(?P<seq>\d{3})$")
 OWNER_PLACEHOLDERS = {"", "unassigned", "<assign>", "tbd"}
 

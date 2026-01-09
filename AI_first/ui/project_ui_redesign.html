@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Detail — ui_redesign</title>
+  <link rel="stylesheet" href="style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="index.html">Home</a>
+      <a class="nav-link nav-process" href="process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">ui_redesign</h1>
+        <p class="muted small">Redesign the UI to be more professional and polished.</p>
+      </div>
+    </header>
+
+    <div class="summary">
+      <div class="summary-card"><div class="muted small">Phases</div><div class="h6">1</div></div>
+      <div class="summary-card"><div class="muted small">Active Phase</div><div class="h6">Phase 01</div></div>
+      <div class="summary-card"><div class="muted small">Status</div><div class="h6">Planning</div></div>
+    </div>
+
+    <section class="card">
+      <details class="block">
+        <summary class="h4">Project Summary</summary>
+        <ul class="muted small">
+          <li><strong>Project:</strong> ui_redesign</li>
+          <li><strong>Purpose:</strong> Redesign the UI to be more professional and polished.</li>
+          <li><strong>Current Goal:</strong> Define the UI redesign scope, visual direction, and acceptance criteria.</li>
+          <li><strong>Environment:</strong> Local docs and static assets; offline.</li>
+          <li><strong>Constraints:</strong> Keep PII-free; deterministic outputs; local assets only.</li>
+          <li><strong>Consumers:</strong> Project stakeholders.</li>
+          <li><strong>Status:</strong> Planning</li>
+          <li><strong>Owner:</strong> Paul Doyle</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Phase History</h2>
+      <div class="table-wrap">
+        <table class="issues">
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- PHASE_ROWS_START -->
+            <tr data-phase="Phase 01 — Discovery &amp; Direction"
+                data-phase-def-id="phase01-def"
+                data-action-plan-id="phase01-plan"
+                data-stage-action-id="phase01-action"
+                tabindex="0" role="button" aria-label="View Phase 01 details">
+              <td>Phase 01 — Discovery &amp; Direction</td>
+              <td><span class="badge status-open">Planning</span></td>
+              <td>TBD</td>
+            </tr>
+<!-- PHASE_ROWS_END -->
+          </tbody>
+        </table>
+      </div>
+      <p class="filter-hint">Update this table as phases progress or close.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="h4">Phase Details</h2>
+      <p class="muted small" id="phaseDetailTitle">Select a phase to review the summary.</p>
+      <div class="phase-detail" id="phaseDetail">
+        <div class="muted small">No phase selected.</div>
+      </div>
+    </section>
+
+    <!-- PHASE_TEMPLATES_START -->
+    <template id="phase01-def">
+      <ul class="muted small"><li><strong>Objective:</strong> Establish the baseline plan and workflow for the BCO stars UI redesign.</li><li><strong>Scope:</strong> In: BCO UI audit, control map, layout proposal, and performance criteria; Out: implementation or engine rewrites.</li><li><strong>Definition of completion:</strong> Phase action plan and stage action updated with audit findings and criteria; layout proposal documented.</li><li><strong>Stages:</strong></li><li>audit stage -&gt; <code>AI_first/projects/ui_redesign/phases/phase01/actions/ui_redesign_phase01_stage_audit_action.md</code></li><li><strong>Dependencies:</strong> None.</li><li><strong>Risks/assumptions:</strong> UI is Pygame-based with fixed-position controls; maintain offline/local-only operation.</li><li><strong>Links:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/ui_redesign/project_summary_ui_redesign.md</code></li></ul>
+    </template>
+    <template id="phase01-plan">
+      <ul class="muted small"><li><strong>Phase:</strong> see <code>AI_first/projects/ui_redesign/phases/phase01/phase_definition.md</code>.</li><li><strong>Stage list:</strong></li><li>audit stage -&gt; <code>AI_first/projects/ui_redesign/phases/phase01/actions/ui_redesign_phase01_stage_audit_action.md</code></li><li><strong>Objective:</strong> Capture the BCO UI audit, define professional UI and performance criteria, and draft a layout proposal.</li><li><strong>Scope/files:</strong> In: <code>src/starmaps/bco1.py</code> UI audit, control map, criteria, and panel layout proposal; Out: implementation or external tooling.</li><li><strong>Layout proposal summary:</strong> Left HUD panel with grouped sections (header, filters, distance, brightness, toggles, help) and unified control patterns.</li><li><strong>Dependencies:</strong> None.</li><li><strong>Risks/assumptions:</strong> Fixed-position UI and full-screen windowing may require refactor for responsive layout.</li><li><strong>Persona actions:</strong> Default Project Creator/Owner → Project/Process Manager → Developer → QA Lead; add optional personas as needed.</li><li><strong>Validation:</strong> Stage action includes audit findings, criteria list, and a documented layout proposal.</li><li><strong>Rollback:</strong> Revert phase documents if scope changes.</li><li><strong>Ready checklist:</strong> Templates available; scope confirmed as BCO UI only.</li><li><strong>Done checklist:</strong> Stage action populated with persona notes, criteria, and layout proposal.</li></ul>
+    </template>
+    <template id="phase01-action">
+      <ul class="muted small"><li><strong>Phase/Stage:</strong> Phase 01 — Discovery &amp; Direction (audit).</li><li><strong>Objective:</strong> Define scope, workflow, and expectations for UI Redesign.</li><li><strong>Scope:</strong> In: planning docs and acceptance criteria; Out: implementation.</li><li><strong>Acceptance:</strong> Persona notes recorded; scope documented; DoD referenced.</li><li><strong>Dependencies/data:</strong> <code>AI_first/docs/process.md</code>, <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/ui_redesign/project_summary_ui_redesign.md</code></li><li><strong>Outputs:</strong> Updated phase/stage docs and any related process updates.</li><li><strong>Layout proposal summary:</strong> Left HUD panel (320-360px) with grouped sections (header, filters, distance, brightness, toggles, help); unified controls and cached UI surfaces.</li><li><strong>Layout proposal highlights:</strong> Filters and toggles grouped top-to-bottom; distance/brightness controls use a single slider each with numeric readout.</li><li><strong>Interaction model:</strong> Primary mouse controls with optional +/- micro-controls; keyboard/scroll hints live in a collapsible help footer.</li><li><strong>Performance approach:</strong> Cache HUD panels and labels; re-render dynamic values only on change.</li><li><strong>UI spec draft:</strong> Palette, typography scale, component sizes, layout grid, and interaction mapping.</li><li><strong>Definition of Done:</strong> Persona notes filled, DoD checklist referenced, validation steps recorded.</li></ul>
+    </template>
+<!-- PHASE_TEMPLATES_END -->
+
+  </div>
+  <script>
+    const detail = document.getElementById("phaseDetail");
+    const detailTitle = document.getElementById("phaseDetailTitle");
+    const getTemplate = (id) => {
+      if (!id) return '<div class="muted small">No summary available.</div>';
+      const node = document.getElementById(id);
+      return node ? node.innerHTML.trim() : '<div class="muted small">No summary available.</div>';
+    };
+    const renderDetails = (row) => {
+      if (!row) return;
+      const phase = row.dataset.phase || "Phase Details";
+      const phaseDef = getTemplate(row.dataset.phaseDefId);
+      const actionPlan = getTemplate(row.dataset.actionPlanId);
+      const stageAction = getTemplate(row.dataset.stageActionId);
+      if (detailTitle) detailTitle.textContent = phase;
+      detail.innerHTML = `
+        <div class="details-grid">
+          <div class="detail-item">
+            <div class="detail-title">Phase Definition</div>
+            ${phaseDef}
+          </div>
+          <div class="detail-item">
+            <div class="detail-title">Action Plan</div>
+            ${actionPlan}
+          </div>
+          <div class="detail-item">
+            <div class="detail-title">Stage Action</div>
+            ${stageAction}
+          </div>
+        </div>
+      `;
+    };
+    document.querySelectorAll("tr[data-phase]").forEach((row) => {
+      row.addEventListener("click", (evt) => {
+        if (evt.target.closest("a")) return;
+        renderDetails(row);
+      });
+      row.addEventListener("keydown", (evt) => {
+        if (evt.target.closest("a")) return;
+        if (evt.key !== "Enter" && evt.key !== " ") return;
+        renderDetails(row);
+      });
+    });
+  </script>
+</body>
+</html>

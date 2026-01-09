@@ -4,7 +4,7 @@
 - **Stage list:**
   - BCO1 migration stage -> `AI_first/projects/reporestructure/phases/phase02/actions/reporestructure_phase02_stage_bco1_migration_action.md`
 - **Objective:** Migrate BCO1 into the new structure and archive the remaining code safely.
-- **Status:** Planned.
+- **Status:** Closed.
 - **Scope/files:** In: BCO1 entry point, dependencies, datasets/assets; Out: refactors or performance work.
 - **Dependencies:** Phase 01 Repo Structure.
 - **Risks/assumptions:** Preserve run instructions; avoid data duplication.

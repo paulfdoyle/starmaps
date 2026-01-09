@@ -4,7 +4,7 @@
 - **Stage list:**
   - Repo structure stage -> `AI_first/projects/reporestructure/phases/phase01/actions/reporestructure_phase01_stage_repo_structure_action.md`
 - **Objective:** Establish a professional repo layout and migration entry points.
-- **Status:** Active.
+- **Status:** Closed.
 - **Scope/files:** In: directories, naming, initial docs; Out: code migration or performance work.
 - **Deliverables:**
   - Target structure doc (Phase 01 definition) with directory purpose + naming conventions.

@@ -1,7 +1,7 @@
 # Phase 03 — Performance & Technical Review
 
 - **Objective:** Review performance and technical structure of the migrated codebase.
-- **Status:** Planned.
+- **Status:** Active.
 - **Scope:** In: profiling, architecture review, technical debt list, refactor plan; Out: major rewrites unless approved.
 - **Definition of completion:** Performance review documented; prioritized improvement plan; stage action file populated.
 - **Stages:**

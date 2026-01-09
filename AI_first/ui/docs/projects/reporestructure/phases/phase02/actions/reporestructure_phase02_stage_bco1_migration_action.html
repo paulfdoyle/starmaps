@@ -34,13 +34,24 @@
 <li>**Dependencies/data:** <code>AI_first/projects/reporestructure/phases/phase01/</code>, <code>AI_first/docs/process.md</code>.</li>
 <li>**Outputs:** Migrated BCO1 code path, archive location, updated run notes.</li>
 <li>**Definition of Done:** Persona notes filled, DoD checklist referenced, validation steps recorded.</li>
+<li>**Status:** Closed (Phase 02 complete; Phase 03 performance review next).</li>
 </ul>
 <h2>Personas (record outputs; use <code>AI_first/docs/templates/review_checklists.md</code>)</h2>
 <ul>
 <li>Project/Process Manager:</li>
+<li>Status: BCO1 migrated to <code>src/</code> with runner, dataset moved to <code>data/processed/</code>, output dir standardized, legacy demo archived.</li>
+<li>Next actions: run validation pass; resolve dataset-duplication plan (RPR-2026-01-003); prepare Phase 03 performance review notes.</li>
+<li>Risks: dataset duplication; OS-specific deps; migration scope expanded by stability fixes.</li>
+<li>Handoffs: QA validates runtime behavior; Developer keeps archive-only changes.</li>
 <li>Developer:</li>
+<li>Implemented repo-root path config, runner script, standardized output directory, and exit behavior fixes.</li>
+<li>Deviations: applied UI/performance stability fixes to keep BCO1 usable; tracked in BugMgmt.</li>
 <li>QA Lead:</li>
-<li>Optional personas (Product Manager, Repository Steward, Docs Expert, UI/Accessibility, Bug Triage, Automation/Tooling, Architect, Security, Ops/Observability, Performance/Cost, DBA):</li>
+<li>Validate <code>python3 scripts/run_bco1.py</code> loads data and exits cleanly.</li>
+<li>Confirm menu selection, slider/arrow controls, and star selection highlight.</li>
+<li>Optional personas:</li>
+<li>Repository Steward: preserve AI_first; archive legacy artifacts only; keep canonical data under <code>data/</code>.</li>
+<li>DoD checklist reference: <code>AI_first/docs/templates/review_checklists.md</code></li>
 </ul>
 <h2>Plan</h2>
 <ul>
@@ -74,15 +85,19 @@
 </ul>
 <h2>Validation</h2>
 <ul>
-<li>Pending.</li>
+<li>Completed: ran <code>python3 scripts/run_bco1.py</code> after latest fixes.</li>
+<li>Confirmed dataset loads from <code>data/processed/</code> and output writes to <code>assets/images/generated/</code>.</li>
+<li>Exit button and ESC quit terminate cleanly.</li>
 </ul>
 <h2>Documentation updates</h2>
 <ul>
-<li>Pending.</li>
+<li><code>README.md</code> updated with canonical run command and new paths.</li>
+<li><code>AGENTS.md</code> created to document contributor guidelines for the new structure.</li>
 </ul>
 <h2>Issues &amp; lessons</h2>
 <ul>
-<li>Pending.</li>
+<li>Dataset duplication risk remains open pending archive plan (RPR-2026-01-003).</li>
+<li>Archive-only rule reduces migration risk; avoid deleting legacy artifacts without approval.</li>
 </ul>
       </div>
     </section>

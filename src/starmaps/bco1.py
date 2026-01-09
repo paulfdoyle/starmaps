@@ -41,6 +41,14 @@ circle_max_radius = 15
 circle_x = slider_x
 circle_y = slider_y
 circle_radius = circle_max_radius
+TWINKLE_INTERVAL_MS = 200
+BRIGHTNESS_MIN = -10
+BRIGHTNESS_MAX = 10
+BRIGHTNESS_SLIDER_X = slider_x
+BRIGHTNESS_SLIDER_Y = slider_y + 40
+BRIGHTNESS_SLIDER_WIDTH = slider_width
+BRIGHTNESS_SLIDER_HEIGHT = 5
+BRIGHTNESS_CIRCLE_RADIUS = 8
 
 # Define arrow button parameters
 arrow_button_width = 50
@@ -51,6 +59,14 @@ repeat_interval = 100  # How fast the auto-repeat occurs (lower is faster)
 # Position for increase and decrease arrow buttons
 decrease_button_pos = (100, 800)  # Example position for decrease button (left arrow)
 increase_button_pos = (200, 800)  # Example position for increase button (right arrow)
+
+MENU_OPTIONS = ["Stars with Exoplanets", "Super Giant Stars", "Stars like our Sun", "All Stars"]
+MENU_LEFT_MARGIN = 100
+MENU_TOP_MARGIN = 400
+MENU_BUTTON_WIDTH = 250
+MENU_BUTTON_HEIGHT = 50
+MENU_SPACING = 20
+SLIDER_HIT_PADDING = 20
 
 try:
     profile  # exists when kernprof is running the script
@@ -65,6 +81,7 @@ BRM6 = 4  # Base radius for magnitude 6 stars, this will control if mag 6 is vis
 FPS = 90  # Frames per second
 JSON_FILE = str(LEGACY_DATA_FILE)  # Legacy data path; prefer DEFAULT_DATA_FILE
 ScreenScaler = 0.9
+MAG_OFFSET = 0
 
 # These index constants are assignment order dependent. Change with caution
 class SIndex:
@@ -220,6 +237,19 @@ key_to_scale = {
 def get_pasec_from_index(index):
     return int(index_parsecs.get(index))
 
+def clamp_mag_offset(value):
+    return max(BRIGHTNESS_MIN, min(BRIGHTNESS_MAX, value))
+
+def brightness_offset_to_x(offset):
+    clamped = clamp_mag_offset(offset)
+    ratio = (clamped - BRIGHTNESS_MIN) / (BRIGHTNESS_MAX - BRIGHTNESS_MIN)
+    return BRIGHTNESS_SLIDER_X + ratio * BRIGHTNESS_SLIDER_WIDTH
+
+def update_brightness_offset_from_mouse(mouse_x):
+    clamped_x = max(BRIGHTNESS_SLIDER_X, min(mouse_x, BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH))
+    ratio = (clamped_x - BRIGHTNESS_SLIDER_X) / BRIGHTNESS_SLIDER_WIDTH
+    return int(round(BRIGHTNESS_MIN + ratio * (BRIGHTNESS_MAX - BRIGHTNESS_MIN)))
+
 
 # Convert the dictionary to arrays for Numba compatibility
 mags = np.array(list(mag_to_index.keys()))
@@ -347,16 +377,19 @@ def load_custom_star_data(json_file_path):
         # missing_hr_ids.to_csv('data/processed/missing_stars.txt', index=False, header=False)
 
         df.dropna(inplace=True)
-        df = df.assign(ra_hours=df['ra_degrees'] / 15.0, epoch_year=2000)
-        for index, row in df.iterrows():
-            ra_deg, dec_deg = galactic_to_equatorial_proper(row['GLON'], row['GLAT'])
-            df.at[index, 'ra_degrees'] = ra_deg
-            df.at[index, 'dec_degrees'] = dec_deg
+        glon = df['GLON'].to_numpy()
+        glat = df['GLAT'].to_numpy()
+        ra_deg, dec_deg = galactic_to_equatorial_proper(glon, glat)
+        df['ra_degrees'] = ra_deg
+        df['dec_degrees'] = dec_deg
 
-            x, y, z = galactic_to_cartesian(row['GLON'], row['GLAT'], row['distance_parsecs'])
-            df.at[index, '3dx'] = x
-            df.at[index, '3dy'] = y
-            df.at[index, '3dz'] = z
+        l_rad = np.radians(glon)
+        b_rad = np.radians(glat)
+        dist = df['distance_parsecs'].to_numpy()
+        df['3dx'] = dist * np.cos(b_rad) * np.cos(l_rad)
+        df['3dy'] = dist * np.cos(b_rad) * np.sin(l_rad)
+        df['3dz'] = dist * np.sin(b_rad)
+        df = df.assign(ra_hours=df['ra_degrees'] / 15.0, epoch_year=2000)
         # print("3-->",df.iloc[0])
 
         star_data_array = df.to_numpy()  # Convert DataFrame to NumPy array
@@ -365,7 +398,7 @@ def load_custom_star_data(json_file_path):
 
     except Exception as e:
         print(f"An error occurred while loading or processing the star data: {e}")
-        return None, None, None
+        return None
 
 
 @jit(nopython=True)
@@ -519,11 +552,10 @@ def calculate_apparent_magnitude(absolute_magnitude, distance_parsecs,star3dpos,
     """
  
     distance_parsecs = calculate_distance(observerPOS,star3dpos)
+    if distance_parsecs <= 0:
+        distance_parsecs = 1e-3
 
-    if distance_parsecs < 0:
-        raise ValueError("Distance must be greater than 0.")
-
-    apparent_magnitude = absolute_magnitude + 5 * (math.log10(distance_parsecs) - 1)
+    apparent_magnitude = absolute_magnitude + 5 * (math.log10(distance_parsecs) - 1) - MAG_OFFSET
     return apparent_magnitude
   
  #   return absolute_magnitude
@@ -599,8 +631,7 @@ def draw_star_surfaces(color):
     for j in range(NUMIMAGES):
         star_surface.append(pygame.Surface((RADIUS * 2, RADIUS * 2), pygame.SRCALPHA))
         for i in range(RADIUS, 0, -1):
-            #
-            if i < RADIUS // 2:
+            if i < RADIUS // 4:
                 gradient_color = (255 - (j * TR), 255 - (j * TR), 255 - (j * TR))
             elif i < RADIUS // 2:
                 mix_ratio = (i - RADIUS // 4) / (RADIUS // 4)
@@ -643,10 +674,14 @@ def perspective_projection(x, y, z, f):
     y_prime = (f * y) / z
     return (x_prime, y_prime)
 
+FONT_CACHE = {}
 
 # create a surface with text on it
 def writeText(text, color, fontsize):
-    font = pygame.font.Font(None, fontsize)
+    font = FONT_CACHE.get(fontsize)
+    if font is None:
+        font = pygame.font.Font(None, fontsize)
+        FONT_CACHE[fontsize] = font
     return font.render(text, True, color)
 
     # Functions
@@ -773,22 +808,6 @@ def drawScreenUpdate(screen, canvas, bestHeight):
 
     return x_position, y_position, scale_factor
 
-def blit_labels(canvas, star, nx, ny, scale, star_labels,control_vars):
-    hip_to_label = {
-        32349: 'sirius',
-        102098: 'deneb',
-        71683: 'alphaCentA',
-        37279: 'procyon',
-        8102: 'tauceti52',
-        16537: 'eridani',
-        104214: 'cyg61',
-        108870: 'epsilonIndi',
-        11767: 'polaris',
-    }
- 
-    return star_labels, scale_labels
-
-
 def initialise_control_varaiables():
     control_vars = {
         'draw_frame': True,
@@ -801,8 +820,10 @@ def initialise_control_varaiables():
         'ViewScale':  1,   # this is in parsecs
         'MaxParsecIndex' : 0, # Initialise to begin
         'MagOffset':   0,
+        'brightness_changed': False,
         'Position':   (0,0,20),
         'sphere': 20,
+        'filter_mode': len(MENU_OPTIONS) - 1,
         'scale': 0 # The scale needs to be worked out based on the radius of the frame circle. 
 
     }
@@ -901,13 +922,7 @@ def should_draw_star(stardistance, currentradius,mag):
         return True
     if stardistance < currentradius/10 and mag >14:
         return False
-    else:
-        return True
-
-
-    # This function returns a probability that the star should be drawn
-    # Sigmoid function to scale the probability
-    return 1 / (1 + math.exp((distance - max_distance / 2) / (max_distance / 10)))
+    return True
 
 
 def create_circle_surfaces(color, max_radius):
@@ -916,7 +931,8 @@ def create_circle_surfaces(color, max_radius):
         diameter = 2 * radius
         surface = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
         pygame.draw.circle(surface, color, (radius, radius), radius)
-        newsurface = pygame.transform.smoothscale(surface, (radius/2, radius/2))
+        scaled_size = max(1, radius // 2)
+        newsurface = pygame.transform.smoothscale(surface, (scaled_size, scaled_size))
         surfaces.append(newsurface)
     return surfaces
 
@@ -977,6 +993,7 @@ class StarSprite(pygame.sprite.Sprite):
         self.scale = scale
         self.canvas_center = canvas_center
         self.image = self.surface_array[8][self.variant]  # use a default mag index
+        self.rect = None
         self.Parsecs = parsecs  # This is a distance from a specific position, can be SOL, or a relative position
         self.ABS_Mag = abs_mag
         self.StarType = star_type_index
@@ -988,12 +1005,25 @@ class StarSprite(pygame.sprite.Sprite):
         self.NAME = name
         self.Description = description
         self.observerPOS = (0,0,1)
+        self.last_observer_pos = None
+        self.last_twinkle_ms = 0
         self.update_2d_position()
-        self.magindex = get_index_from_magnitude(calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs,self.pos_3d,self.observerPOS))
-        self.rect = self.image.get_rect(center=self.pos_2d)
 
-        self.info = self.NAME + "\nReference: " + str(self.HIP) + "\nStar Type: "+ self.StarTypeName + "\nExoplanets: " + str(self.ExoPlanetNum)
+        self.info = (
+            self.NAME
+            + "\nReference: "
+            + str(self.HIP)
+            + "\nStar Type: "
+            + self.StarTypeName
+            + "\nExoplanets: "
+            + str(self.ExoPlanetNum)
+            + "\nDistance to Sun: "
+            + f"{self.Parsecs:.2f} pc"
+        )
         self.infoVisible = False
+        self.info_surface = None
+        self.info_surface_scaled = None
+        self.info_scale_factor = None
 
         self.visibility_radius = visibility_radius
         #self.create_info_surface()
@@ -1008,6 +1038,8 @@ class StarSprite(pygame.sprite.Sprite):
         self.infoVisible = visible
 
     def create_info_surface(self):
+        if self.info_surface is not None:
+            return
         # Create a font for rendering text
         font = pygame.font.Font(None, FIndex.VERYSMALL)  # Adjust the font size as needed
 
@@ -1085,18 +1117,41 @@ class StarSprite(pygame.sprite.Sprite):
     def set_visibility_radius(self, new_radius):
         self.visibility_radius = new_radius   
 
-    def set_position_3d(self, new_pos,scale,observerPos):
+    def set_position_3d(self, new_pos, scale, observerPos, magindex=None):
         self.scale = scale
         self.pos_3d = new_pos
         self.observerPOS = observerPos
-        self.update_2d_position()
+        if magindex is not None:
+            self.magindex = magindex
+            self.last_observer_pos = observerPos
+        self.update_2d_position(recompute_mag=magindex is None)
 
-    def update_2d_position(self):
-        self.variant = self.select_random_variant()
-        self.pos_2d = set_2d_position (self.pos_3d, self.scale,self.canvas_center)
-        self.magindex = get_index_from_magnitude(calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs,self.pos_3d,self.observerPOS))
-        self.image = self.surface_array[self.magindex][self.variant]
-        self.rect = self.image.get_rect(center=self.pos_2d)
+    def update_2d_position(self, recompute_mag=True):
+        now_ms = pygame.time.get_ticks()
+        if now_ms - self.last_twinkle_ms >= TWINKLE_INTERVAL_MS:
+            self.variant = self.select_random_variant()
+            self.last_twinkle_ms = now_ms
+
+        self.pos_2d = set_2d_position(self.pos_3d, self.scale, self.canvas_center)
+
+        if recompute_mag and self.last_observer_pos != self.observerPOS:
+            self.magindex = get_index_from_magnitude(
+                calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs, self.pos_3d, self.observerPOS)
+            )
+            self.last_observer_pos = self.observerPOS
+
+        new_image = self.surface_array[self.magindex][self.variant]
+        if self.rect is None:
+            self.image = new_image
+            self.rect = self.image.get_rect(center=self.pos_2d)
+        elif new_image is not self.image:
+            self.image = new_image
+            if self.rect.size != self.image.get_size():
+                self.rect = self.image.get_rect(center=self.pos_2d)
+            else:
+                self.rect.center = self.pos_2d
+        else:
+            self.rect.center = self.pos_2d
 
 
 
@@ -1291,12 +1346,15 @@ def generate_star_sprites(control_vars, canvas, canvas_set, star_data_np):
     sprites = pygame.sprite.Group()
     star_points = []
     sprite_index_map = {}
+    max_star_type = len(canvas_set) - 1
 
     for star in star_data_np:
         hip_id = int(star[SIndex.HIP])  # Convert HIP ID to integer
+        star_type_raw = int(star[SIndex.STAR_TYPE])
+        if star_type_raw < 0 or star_type_raw > max_star_type:
+            star_type_raw = 0
         sprite = StarSprite(
-            
-            canvas_set[int(star[SIndex.STAR_TYPE])],
+            canvas_set[star_type_raw],
             (star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]),
             True,
             star[SIndex.GLON],
@@ -1305,7 +1363,7 @@ def generate_star_sprites(control_vars, canvas, canvas_set, star_data_np):
             canvas_center,
             star[SIndex.DISTANCE_PARSECS],
             star[SIndex.ABS_MAG],
-            star[SIndex.STAR_TYPE],
+            star_type_raw,
             star[SIndex.NUM_EXOs],
             0,
             star[SIndex.HIP],
@@ -1313,7 +1371,7 @@ def generate_star_sprites(control_vars, canvas, canvas_set, star_data_np):
             control_vars['sphere'],
             star[SIndex.NAME],
             star[SIndex.DESCRIPTION],
-            get_star_description_by_index(int(star[SIndex.STAR_TYPE]))
+            get_star_description_by_index(star_type_raw)
         )
         sprites.add(sprite)
         star_point = np.array([star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]])
@@ -1368,33 +1426,68 @@ def is_visible(position, visibility_radius):
     return np.linalg.norm(position) <= visibility_radius
 
 @profile
-def update_visibility(sprites, visibility_radius, custom_sprites,option):
+def update_visibility(sprites, visibility_radius, custom_sprites, option, filter_masks=None, dist_sq=None, sprite_list=None):
     custom_sprites.empty()
 
-    for sprite in sprites:
-        if option == 0:
-            if sprite.ExoPlanetNum > 0:  # exoplanet filter
-                print ("got a match")
-                print (option,sprite.ExoPlanetNum )
-
+    if filter_masks is None or dist_sq is None or sprite_list is None:
+        for sprite in sprites:
+            if option == 0:
+                if sprite.ExoPlanetNum > 0:  # exoplanet filter
+                    if is_visible(sprite.pos_3d, visibility_radius):
+                        custom_sprites.add(sprite)
+            elif option == 1:
+                if sprite.StarType == 6:  # Large Reg Giants filter
+                    if is_visible(sprite.pos_3d, visibility_radius):
+                        custom_sprites.add(sprite)
+            elif option == 2:
+                if sprite.StarType == 4:  # Earth Type Stars filter
+                    if is_visible(sprite.pos_3d, visibility_radius):
+                        custom_sprites.add(sprite)
+            else:
                 if is_visible(sprite.pos_3d, visibility_radius):
                     custom_sprites.add(sprite)
-        elif option == 1:
-            if sprite.StarType == 6:  # Large Reg Giants filter
-                if is_visible(sprite.pos_3d, visibility_radius):
-                    custom_sprites.add(sprite)
-        elif option == 2:
-            if sprite.StarType == 4:  # Earth Type Stars filter
-                if is_visible(sprite.pos_3d, visibility_radius):
-                    custom_sprites.add(sprite)
-        else:
-            if is_visible(sprite.pos_3d, visibility_radius):
-                custom_sprites.add(sprite)
+        return custom_sprites, None
 
-#        if sprite.HIP == 99998.0:  # SUN
-#           sprite.set_distance(1)
+    radius_sq = visibility_radius * visibility_radius
+    if option == 0:
+        base_mask = filter_masks["exo"]
+    elif option == 1:
+        base_mask = filter_masks["giant"]
+    elif option == 2:
+        base_mask = filter_masks["sun"]
+    else:
+        base_mask = None
 
-    return custom_sprites
+    if base_mask is None:
+        visible_mask = dist_sq <= radius_sq
+    else:
+        visible_mask = base_mask & (dist_sq <= radius_sq)
+
+    visible_indices = np.nonzero(visible_mask)[0]
+    for idx in visible_indices:
+        custom_sprites.add(sprite_list[idx])
+
+    return custom_sprites, visible_indices
+
+def compute_magindices_for_indices(visible_indices, xy_sq, z_vals, abs_mags, observer_pos, all_star_points):
+    if visible_indices is None or visible_indices.size == 0:
+        return np.array([], dtype=int)
+
+    if observer_pos[0] == 0 and observer_pos[1] == 0:
+        dz = z_vals[visible_indices] - observer_pos[2]
+        dist = np.sqrt(xy_sq[visible_indices] + dz * dz)
+    else:
+        points = all_star_points[visible_indices]
+        dx = points[:, 0] - observer_pos[0]
+        dy = points[:, 1] - observer_pos[1]
+        dz = points[:, 2] - observer_pos[2]
+        dist = np.sqrt(dx * dx + dy * dy + dz * dz)
+
+    dist = np.maximum(dist, 1e-3)
+    apparent = abs_mags[visible_indices] + 5 * (np.log10(dist) - 1) - MAG_OFFSET
+    abs_diff = np.abs(mags[:, None] - apparent[None, :])
+    closest = np.argmin(abs_diff, axis=0)
+    return indices[closest]
 
 # @profile
 # def update_visibility(sprites, visibility_radius, custom_sprites):
@@ -1431,6 +1524,9 @@ class CustomSpriteGroup(pygame.sprite.Group):
         sprites = self.sprites()
         for spr in sprites:
             surface.blit(spr.image, spr.rect, special_flags=pygame.BLEND_ADD)
+            if spr.infoVisible:
+                radius = max(spr.rect.width, spr.rect.height) // 2 + 4
+                pygame.draw.circle(surface, CIndex.CYAN, spr.rect.center, radius, width=1)
 
 
     def drawInfo(self, surface, parsecs):
@@ -1454,14 +1550,17 @@ class CustomSpriteGroup(pygame.sprite.Group):
             # Create the info surface (assuming this generates the original size)
             spr.create_info_surface()
 
-            # Scale the surface using the calculated scale factor
-            scaled_info_surface = pygame.transform.scale(
-                spr.info_surface,
-                (
-                    int(spr.info_surface.get_width() * scale_factor),
-                    int(spr.info_surface.get_height() * scale_factor)
+            scale_key = round(scale_factor, 3)
+            if spr.info_surface_scaled is None or spr.info_scale_factor != scale_key:
+                spr.info_surface_scaled = pygame.transform.scale(
+                    spr.info_surface,
+                    (
+                        int(spr.info_surface.get_width() * scale_factor),
+                        int(spr.info_surface.get_height() * scale_factor)
+                    )
                 )
-            )
+                spr.info_scale_factor = scale_key
+            scaled_info_surface = spr.info_surface_scaled
 
             # Calculate the position where the scaled surface should be blitted
             # Offset it to the right and slightly below the star, without covering it
@@ -1584,25 +1683,119 @@ def showFPS(FPS_text,frame_count,start_time):
 
 
 # Handle the keyboard events
-def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotate,x_offset,y_offset,canvas_scale,parsecs_changed,decrease_button_rect,increase_button_rect,mouse_held,last_repeat_time):
-    global observerPOS
+def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotate,x_offset,y_offset,canvas_scale,parsecs_changed,decrease_button_rect,increase_button_rect,mouse_held,last_repeat_time,quit_button_rect,menu_rects):
+    global observerPOS, circle_x, circle_radius
     scaling_factor = 1.05
     max_parsecs = 1500
 
-    scaled_mouse_x,scaled_mouse_y = -1, -1
+    scaled_mouse_x,scaled_mouse_y = None, None
     clearInfo = False
 
     for event in pygame.event.get():
         
         if event.type == pygame.QUIT:
             pygame.quit()
-            return False, parsecs, current_orientation, rotate           
+            return False, parsecs, current_orientation, rotate, scaled_mouse_x, scaled_mouse_y, clearInfo, parsecs_changed, mouse_held, last_repeat_time
         if event.type == pygame.MOUSEBUTTONDOWN:
-             # Get the mouse position
-             mouse_x, mouse_y = pygame.mouse.get_pos()
-             scaled_mouse_x = (mouse_x- x_offset) / canvas_scale
-             scaled_mouse_y = (mouse_y- y_offset) / canvas_scale
-             #control_vars, parsecs = menu.handle_mouse_click((scaled_mouse_x,scaled_mouse_y),control_vars, parsecs)
+            # Get the mouse position
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            #control_vars, parsecs = menu.handle_mouse_click((scaled_mouse_x,scaled_mouse_y),control_vars, parsecs)
+
+            if event.button in (4, 5):
+                if event.button == 4:
+                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
+                else:
+                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
+                control_vars['brightness_changed'] = True
+                continue
+
+            if quit_button_rect and quit_button_rect.collidepoint(mouse_x, mouse_y):
+                pygame.quit()
+                return False, parsecs, current_orientation, rotate, scaled_mouse_x, scaled_mouse_y, clearInfo, parsecs_changed, mouse_held, last_repeat_time
+
+            if event.button == 1:
+                click_consumed = False
+                change = handle_arrow_click(event, decrease_button_rect, increase_button_rect)
+                if change != 0:
+                    if change < 0:
+                        parsecs *= scaling_factor  # Decrease button clicked
+                    elif change > 0:
+                        parsecs *= 1 / scaling_factor  # Increase button clicked
+                    parsecs_changed = True
+
+                    if parsecs > max_parsecs:
+                        parsecs = max_parsecs
+                    if parsecs <= 0:
+                        parsecs = 1
+
+                    control_vars['Position'] = (0, 0, parsecs)
+                    observerPOS = (0, 0, parsecs)
+                    click_consumed = True
+
+                for index, rect in enumerate(menu_rects):
+                    if rect.collidepoint(mouse_x, mouse_y):
+                        if control_vars['filter_mode'] != index:
+                            control_vars['filter_mode'] = index
+                            parsecs_changed = True
+                        click_consumed = True
+                        break
+
+                is_on_slider = (
+                    slider_x <= mouse_x <= slider_x + slider_width
+                    and slider_y - SLIDER_HIT_PADDING <= mouse_y <= slider_y + SLIDER_HIT_PADDING
+                )
+                if is_on_slider and not decrease_button_rect.collidepoint(mouse_x, mouse_y) and not increase_button_rect.collidepoint(mouse_x, mouse_y):
+                    circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x)
+                    if control_vars['ViewScale'] != position_value:
+                        parsecs_changed = True
+                        control_vars['ViewScale'] = position_value
+                        parsecs = get_pasec_from_index(control_vars['ViewScale'])
+                        control_vars['Position'] = (0, 0, parsecs)
+                        observerPOS = (0, 0, parsecs)
+                    click_consumed = True
+
+                is_on_brightness = (
+                    BRIGHTNESS_SLIDER_X <= mouse_x <= BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH
+                    and BRIGHTNESS_SLIDER_Y - SLIDER_HIT_PADDING <= mouse_y <= BRIGHTNESS_SLIDER_Y + SLIDER_HIT_PADDING
+                )
+                if is_on_brightness:
+                    control_vars['MagOffset'] = clamp_mag_offset(update_brightness_offset_from_mouse(mouse_x))
+                    control_vars['brightness_changed'] = True
+                    click_consumed = True
+
+                if not click_consumed:
+                    scaled_mouse_x = (mouse_x - x_offset) / canvas_scale
+                    scaled_mouse_y = (mouse_y - y_offset) / canvas_scale
+
+        if event.type == pygame.MOUSEMOTION and mouse_held:
+            mouse_x, mouse_y = event.pos
+            is_on_slider = (
+                slider_x <= mouse_x <= slider_x + slider_width
+                and slider_y - SLIDER_HIT_PADDING <= mouse_y <= slider_y + SLIDER_HIT_PADDING
+            )
+            if is_on_slider and not decrease_button_rect.collidepoint(mouse_x, mouse_y) and not increase_button_rect.collidepoint(mouse_x, mouse_y):
+                circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x)
+                if control_vars['ViewScale'] != position_value:
+                    parsecs_changed = True
+                    control_vars['ViewScale'] = position_value
+                    parsecs = get_pasec_from_index(control_vars['ViewScale'])
+                    control_vars['Position'] = (0, 0, parsecs)
+                    observerPOS = (0, 0, parsecs)
+
+            is_on_brightness = (
+                BRIGHTNESS_SLIDER_X <= mouse_x <= BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH
+                and BRIGHTNESS_SLIDER_Y - SLIDER_HIT_PADDING <= mouse_y <= BRIGHTNESS_SLIDER_Y + SLIDER_HIT_PADDING
+            )
+            if is_on_brightness:
+                control_vars['MagOffset'] = clamp_mag_offset(update_brightness_offset_from_mouse(mouse_x))
+                control_vars['brightness_changed'] = True
+
+        if event.type == pygame.MOUSEWHEEL:
+            if event.y > 0:
+                control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
+            elif event.y < 0:
+                control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
+            control_vars['brightness_changed'] = True
 
 
            # Handle mouse down and mouse up events
@@ -1615,9 +1808,9 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
  
         if event.type == pygame.KEYDOWN:
 
-            if event.key == pygame.K_q:
+            if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
                 pygame.quit()
-                return False, parsecs, current_orientation, rotate
+                return False, parsecs, current_orientation, rotate, scaled_mouse_x, scaled_mouse_y, clearInfo, parsecs_changed, mouse_held, last_repeat_time
 
             if event.key == pygame.K_m:
                 control_vars['MagType'] = "APP" if control_vars['MagType'] == "REL" else "REL"
@@ -1645,6 +1838,10 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                 parsecs = get_pasec_from_index(control_vars['ViewScale'])
                 control_vars['Position'] = (0, 0, parsecs)
                 observerPOS = (0, 0, parsecs)
+                view_index = max(0, min(9, control_vars['ViewScale']))
+                slider_progress = 1 - (view_index / 9)
+                circle_x = slider_x + slider_progress * slider_width
+                circle_radius = circle_max_radius - (circle_max_radius - circle_min_radius) * slider_progress
 
 
             if event.key == pygame.K_o:
@@ -1693,9 +1890,11 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                 current_orientation = Quaternion()  # Reset rotation
 
             if event.key == pygame.K_r:
-                control_vars['MagOffset'] += 1
+                control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
+                control_vars['brightness_changed'] = True
             if event.key == pygame.K_t:
-                control_vars['MagOffset'] -= 1
+                control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
+                control_vars['brightness_changed'] = True
 
 
    # Handle auto-repeat while mouse is held down
@@ -1763,7 +1962,7 @@ def render_text(surface, text, font, color, rect, max_width):
         y += line_height + line_spacing
 
 # Draw a rounded rectangle border (with rounded corners) and hover effect
-def draw_rounded_border_button(screen, text, rect, border_color, is_hovered):
+def draw_rounded_border_button(screen, text, rect, border_color, is_hovered, is_selected=False):
     """
     Draws a button with a green border and rounded edges, without filling the background.
     
@@ -1773,9 +1972,13 @@ def draw_rounded_border_button(screen, text, rect, border_color, is_hovered):
     - rect: The position and size of the button (pygame.Rect).
     - border_color: The color of the border (RGBA).
     - is_hovered: Boolean indicating whether the mouse is hovering over the button.
+    - is_selected: Boolean indicating whether the button is selected.
     """
-    # If hovered, make the border color brighter by increasing the alpha
-    if is_hovered:
+    # If hovered or selected, make the border color brighter and update text color
+    if is_selected:
+        button_border_color = CIndex.GREEN2
+        text_color = CIndex.LIGHTCYAN
+    elif is_hovered:
         button_border_color = (border_color[0], border_color[1], border_color[2], 255)  # Fully opaque border on hover
         text_color = CIndex.CYAN # Change text color to cyan when hovered
     else:
@@ -1797,36 +2000,38 @@ def draw_rounded_border_button(screen, text, rect, border_color, is_hovered):
     # Blit the text directly onto the screen
     screen.blit(text_surface, text_rect)
 
+def build_menu_rects():
+    return [
+        pygame.Rect(
+            MENU_LEFT_MARGIN,
+            MENU_TOP_MARGIN + (MENU_BUTTON_HEIGHT + MENU_SPACING) * index,
+            MENU_BUTTON_WIDTH,
+            MENU_BUTTON_HEIGHT,
+        )
+        for index in range(len(MENU_OPTIONS))
+    ]
 
-def draw_futuristic_menu(screen):
+def draw_futuristic_menu(screen, selected_index, menu_rects):
     """
     Draws a futuristic-looking menu on the right side of the screen with options.
     """
-    menu_options = ["Stars with Exoplanets", "Super Giant Stars", "Stars like our Sun", "All Stars"]
-    button_width = 250
-    button_height = 50  # Reduced height to fit the smaller font size
-    spacing = 20
-    selectedoption = -1
-    # Start drawing buttons from the top right corner
-    top_margin = 400
-    left_margin = 100
-
-    # Get mouse position for hover effect
+    hovered_index = -1
     mouse_x, mouse_y = pygame.mouse.get_pos()
 
-    for index, option in enumerate(menu_options):
-        # Calculate button rectangle
-        rect = pygame.Rect(left_margin, top_margin + (button_height + spacing) * index, button_width, button_height)
-        
-        # Check if mouse is hovering over the button
+    for index, option in enumerate(MENU_OPTIONS):
+        rect = menu_rects[index]
         is_hovered = rect.collidepoint(mouse_x, mouse_y)
-        
-        # Draw the button with a green border and hover effect on text
-        draw_rounded_border_button(screen, option, rect, CIndex.GREEN3, is_hovered)
+        is_selected = index == selected_index
+        draw_rounded_border_button(screen, option, rect, CIndex.GREEN3, is_hovered, is_selected)
         if is_hovered:
-            selectedoption = index
+            hovered_index = index
 
-    return selectedoption
+    return hovered_index
+
+
+def draw_exit_button(screen, rect):
+    is_hovered = rect.collidepoint(pygame.mouse.get_pos())
+    draw_rounded_border_button(screen, "Exit (Esc)", rect, CIndex.RED, is_hovered)
 
 def draw_arrow_button(screen, rect, direction, is_hovered):
     """
@@ -1915,6 +2120,22 @@ def handle_slider(screen, circle_x, circle_radius):
     # Draw the moving circle
     pygame.draw.circle(screen, CIndex.GREEN3, (circle_x, circle_y), circle_radius)
 
+def draw_brightness_slider(screen, mag_offset):
+    knob_x = brightness_offset_to_x(mag_offset)
+    pygame.draw.line(
+        screen,
+        CIndex.GREEN3,
+        (BRIGHTNESS_SLIDER_X, BRIGHTNESS_SLIDER_Y),
+        (BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH, BRIGHTNESS_SLIDER_Y),
+        BRIGHTNESS_SLIDER_HEIGHT,
+    )
+    pygame.draw.circle(
+        screen,
+        CIndex.GREEN3,
+        (int(knob_x), BRIGHTNESS_SLIDER_Y),
+        BRIGHTNESS_CIRCLE_RADIUS,
+    )
+
 
 @profile
 def main():
@@ -1928,10 +2149,13 @@ def main():
     canvas = screen
     global circle_x, circle_radius  # Declare them as global
     global observerPOS
+    global MAG_OFFSET
 
     # Define the rectangles for the buttons
     decrease_button_rect = pygame.Rect(decrease_button_pos, (arrow_button_width, arrow_button_height))
     increase_button_rect = pygame.Rect(increase_button_pos, (arrow_button_width, arrow_button_height))
+    quit_button_rect = pygame.Rect(20, 20, 140, 40)
+    menu_rects = build_menu_rects()
 
     mouse_held = False  # Track if the mouse button is being held
     last_repeat_time = pygame.time.get_ticks()  # Track the last time the auto-repeat occurred
@@ -1962,6 +2186,10 @@ def main():
     #   star_data_np = load_custom_star_data(str(LEGACY_DATA_FILE))
 
     star_data_np = load_custom_star_data(str(DEFAULT_DATA_FILE))
+    if star_data_np is None:
+        print("Star data failed to load; exiting.")
+        pygame.quit()
+        return
 
     # Now create all of the sprites for the wire-frame and the points for rotation
     all_frame_points, all_frame_sprites_group = generate_frame_sprites(control_vars,canvas)
@@ -1970,7 +2198,15 @@ def main():
     #all_star_points, all_stars_sprites_group = generate_star_sprites(control_vars,canvas, canvas_set,star_data_np)
 
     all_star_points, all_stars_sprites_group, sprite_index_mapnew = generate_star_sprites(control_vars, canvas, canvas_set, star_data_np)
-    sprite_index_map = {sprite: i for i, sprite in enumerate(all_stars_sprites_group)}
+    sprite_list = list(all_stars_sprites_group)
+    dist_sq = np.einsum('ij,ij->i', all_star_points, all_star_points)
+    xy_sq = np.einsum('ij,ij->i', all_star_points[:, :2], all_star_points[:, :2])
+    z_vals = all_star_points[:, 2]
+    abs_mags = np.fromiter((sprite.ABS_Mag for sprite in sprite_list), dtype=float, count=len(sprite_list))
+    exo_mask = np.fromiter((sprite.ExoPlanetNum > 0 for sprite in sprite_list), dtype=bool, count=len(sprite_list))
+    giant_mask = np.fromiter((sprite.StarType == 6 for sprite in sprite_list), dtype=bool, count=len(sprite_list))
+    sun_mask = np.fromiter((sprite.StarType == 4 for sprite in sprite_list), dtype=bool, count=len(sprite_list))
+    filter_masks = {"exo": exo_mask, "giant": giant_mask, "sun": sun_mask}
     
     hip_id = 102098.0  # Example HIP ID
     hip_id_int = int(hip_id)  # Convert to integer before lookup 
@@ -1987,6 +2223,18 @@ def main():
     running = True
     pygame.key.set_repeat(200, 25)
     FPS_text = f"Actual FPS: 0"
+    static_text_surfaces = {
+        "exoplanets": writeText("View Stars with ExoPlanets", CIndex.WHITE, FIndex.VERYSMALL),
+        "earth_like": writeText("View Earth Like Stars", CIndex.WHITE, FIndex.VERYSMALL),
+    }
+    parsec_text = f"Distance in Parsecs: {parsecs:.2f}"
+    parsec_surface = writeText(parsec_text, CIndex.WHITE, FIndex.VERYSMALL)
+    last_parsec_text = parsec_text
+    fps_surface = writeText(FPS_text, CIndex.WHITE, FIndex.VERYSMALL)
+    last_fps_text = FPS_text
+    brightness_text = f"Brightness Offset (R/T/Scroll/Drag): {control_vars['MagOffset']:+d}"
+    brightness_surface = writeText(brightness_text, CIndex.WHITE, FIndex.VERYSMALL)
+    last_brightness_text = brightness_text
 
     x_offset,y_offset,canvas_scale = (0,0,1)
     response= ""
@@ -1994,15 +2242,23 @@ def main():
     clearInfo = False
    
     custom_visible_star_sprites = CustomSpriteGroup()
-    # Initialize circle_x and circle_radius with default values
-    circle_x = slider_x  # Start at the beginning of the slider
-    circle_radius = circle_max_radius  # Start with the maximum radius
+    infoSpriteGroup = CustomSpriteGroup()
+    visible_indices = np.array([], dtype=int)
+    visible_magindices = np.array([], dtype=int)
+    last_observer_pos = observerPOS
+    last_mag_offset = control_vars['MagOffset']
+    # Initialize circle_x and circle_radius to match the current view scale
+    view_index = max(0, min(9, control_vars['ViewScale']))
+    slider_progress = 1 - (view_index / 9)
+    circle_x = slider_x + slider_progress * slider_width
+    circle_radius = circle_max_radius - (circle_max_radius - circle_min_radius) * slider_progress
 
     while running:
         clock.tick(FPS)
 
         # check for key input
-        running, parsecs, current_orientation,rotated,mouse_x,mouse_y,clearInfo, parsecs_changed, mouse_held,last_repeat_time = handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotated,x_offset,y_offset,canvas_scale,parsecs_changed, decrease_button_rect, increase_button_rect,mouse_held,last_repeat_time)
+        running, parsecs, current_orientation,rotated,mouse_x,mouse_y,clearInfo, parsecs_changed, mouse_held,last_repeat_time = handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotated,x_offset,y_offset,canvas_scale,parsecs_changed, decrease_button_rect, increase_button_rect,mouse_held,last_repeat_time, quit_button_rect, menu_rects)
+        MAG_OFFSET = control_vars['MagOffset']
         if running:
             canvas.fill((0, 0, 0))
 
@@ -2027,51 +2283,77 @@ def main():
             # update_star_positions(all_stars_sprites_group,rotated_points ,control_vars['scale'])
             # custom_visible_star_sprites = update_visibility(all_stars_sprites_group,control_vars['sphere']*ScreenScaler)
 
-            # Step 1: Rotate all points
-            if rotated :
-                rotated_points = rotate_points_numba(all_star_points, q_np)
- 
-            option = draw_futuristic_menu (canvas)  
-            # Get the current mouse position
-#            mouse_x, mouse_y = pygame.mouse.get_pos()
+            selected_filter = control_vars['filter_mode']
+            draw_futuristic_menu(canvas, selected_filter, menu_rects)
+            draw_exit_button(canvas, quit_button_rect)
+            handle_slider(canvas, circle_x, circle_radius)
+            draw_brightness_slider(canvas, control_vars['MagOffset'])
 
-            # Check if the mouse is hovering over the slider line
-            # if slider_x <= mouse_x <= slider_x + slider_width and slider_y - 20 <= mouse_y <= slider_y + 20:
-            #     # Update the circle's position and size as the mouse hovers
-            #     circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x)
-            #     print (position_value)
-            #     parsecs_changed = True
-            #     control_vars['ViewScale'] = position_value
-            #     parsecs = get_pasec_from_index(control_vars['ViewScale'])
-            #     control_vars['Position'] = (0, 0, parsecs)
-            #     observerPOS = (0, 0, parsecs)
-
-            # Draw the slider and the circle
- #           handle_slider(screen, circle_x, circle_radius)
-
-            # Draw the arrow buttons
-            draw_arrow_button(screen, decrease_button_rect, "left", False)
-            draw_arrow_button(screen, increase_button_rect, "right", False)
-
-            
-            # Handle button clicks
-
-
-            if option >= 0:
-                custom_visible_star_sprites = update_visibility(all_stars_sprites_group, control_vars['sphere'] * ScreenScaler,custom_visible_star_sprites,option)
+            mouse_pos = pygame.mouse.get_pos()
+            draw_arrow_button(canvas, decrease_button_rect, "left", decrease_button_rect.collidepoint(mouse_pos))
+            draw_arrow_button(canvas, increase_button_rect, "right", increase_button_rect.collidepoint(mouse_pos))
 
             # Step 2: Determine which stars are visible and create a visible sprite group
             if parsecs_changed:
-                custom_visible_star_sprites = update_visibility(all_stars_sprites_group, control_vars['sphere'] * ScreenScaler,custom_visible_star_sprites,option)
+                custom_visible_star_sprites, visible_indices = update_visibility(
+                    all_stars_sprites_group,
+                    control_vars['sphere'] * ScreenScaler,
+                    custom_visible_star_sprites,
+                    selected_filter,
+                    filter_masks,
+                    dist_sq,
+                    sprite_list,
+                )
+                visible_magindices = compute_magindices_for_indices(
+                    visible_indices,
+                    xy_sq,
+                    z_vals,
+                    abs_mags,
+                    observerPOS,
+                    all_star_points,
+                )
+                last_observer_pos = observerPOS
                 parsecs_changed = False
+                rotated = True
+            elif observerPOS != last_observer_pos:
+                visible_magindices = compute_magindices_for_indices(
+                    visible_indices,
+                    xy_sq,
+                    z_vals,
+                    abs_mags,
+                    observerPOS,
+                    all_star_points,
+                )
+                last_observer_pos = observerPOS
+            if control_vars['brightness_changed'] or control_vars['MagOffset'] != last_mag_offset:
+                visible_magindices = compute_magindices_for_indices(
+                    visible_indices,
+                    xy_sq,
+                    z_vals,
+                    abs_mags,
+                    observerPOS,
+                    all_star_points,
+                )
+                last_mag_offset = control_vars['MagOffset']
+                control_vars['brightness_changed'] = False
                 rotated = True
 
             # Step 2: Update only the visible stars using the map
             if rotated :
-                for star in custom_visible_star_sprites:
-                    index = sprite_index_map[star]  # O(1) lookup
-                    new_position = rotated_points[index]
-                    star.set_position_3d(new_position,control_vars['scale'],observerPOS)
+                if visible_indices.size:
+                    if visible_magindices.size != visible_indices.size:
+                        visible_magindices = compute_magindices_for_indices(
+                            visible_indices,
+                            xy_sq,
+                            z_vals,
+                            abs_mags,
+                            observerPOS,
+                            all_star_points,
+                        )
+                        last_observer_pos = observerPOS
+                    rotated_points = rotate_points_numba(all_star_points[visible_indices], q_np)
+                    for idx, new_position, magindex in zip(visible_indices, rotated_points, visible_magindices):
+                        sprite_list[idx].set_position_3d(new_position, control_vars['scale'], observerPOS, magindex)
                 rotated = False
 
 
@@ -2092,25 +2374,34 @@ def main():
             if clearInfo:
                 custom_visible_star_sprites.clearInfo()
                 clearInfo = False
-            if (mouse_x != 0 or mouse_y != 0):
+            if mouse_x is not None and mouse_y is not None:
                 infoSpriteGroup = find_star_by_position(custom_visible_star_sprites, mouse_x, mouse_y)
-                mouse_x, mouse_y = (0,0)
             
             infoSpriteGroup.drawInfo(canvas,parsecs)
 
-           
+            FPS_text, frame_count,start_time = showFPS(FPS_text,frame_count,start_time)
             parsec_text = f"Distance in Parsecs: {parsecs:.2f}"
+            if parsec_text != last_parsec_text:
+                parsec_surface = writeText(parsec_text, CIndex.WHITE, FIndex.VERYSMALL)
+                last_parsec_text = parsec_text
+            if FPS_text != last_fps_text:
+                fps_surface = writeText(FPS_text, CIndex.WHITE, FIndex.VERYSMALL)
+                last_fps_text = FPS_text
+            brightness_text = f"Brightness Offset (R/T/Scroll/Drag): {control_vars['MagOffset']:+d}"
+            if brightness_text != last_brightness_text:
+                brightness_surface = writeText(brightness_text, CIndex.WHITE, FIndex.VERYSMALL)
+                last_brightness_text = brightness_text
 
-            canvas.blit(writeText(parsec_text, CIndex.WHITE, FIndex.VERYSMALL), (100,100))
-            canvas.blit(writeText(FPS_text, CIndex.WHITE, FIndex.VERYSMALL), (100,120)) 
-            canvas.blit(writeText("View Stars with ExoPlanets", CIndex.WHITE, FIndex.VERYSMALL), (100,140)) 
-            canvas.blit(writeText("View Earth Like Stars", CIndex.WHITE, FIndex.VERYSMALL), (100,160)) 
+            canvas.blit(parsec_surface, (100,100))
+            canvas.blit(fps_surface, (100,120))
+            canvas.blit(static_text_surfaces["exoplanets"], (100,140))
+            canvas.blit(static_text_surfaces["earth_like"], (100,160))
+            canvas.blit(brightness_surface, (100,180))
              
  #           x_offset, y_offset, canvas_scale = drawScreenUpdate(screen, canvas, bestHeight)
  #           text_rect = pygame.Rect(10, 10, 700, 500)  # Define the area for text
  #           render_text(screen, response, font, CIndex.WHITE, text_rect, text_rect.width)
 
-            FPS_text, frame_count,start_time = showFPS(FPS_text,frame_count,start_time)
             pygame.display.flip()
 
         else:

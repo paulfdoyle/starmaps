@@ -7,30 +7,25 @@
 - **Dependencies/data:** `AI_first/docs/process.md`, `AI_first/docs/projectplan.md`, `AI_first/projects/reporestructure/project_summary_reporestructure.md`
 - **Outputs:** New structure created; updated docs describing the layout.
 - **Definition of Done:** Persona notes filled, DoD checklist referenced, validation steps recorded.
+- **Status:** Closed (Phase 01 complete; outstanding data-duplication decision tracked separately).
 
 ## Personas (record outputs; use `AI_first/docs/templates/review_checklists.md`)
 - Project Creator/Owner:
+  - Approved target layout and archive-only constraint; confirmed BCO1 as Phase 02 entry point.
 - Project/Process Manager:
-  - Next actions: propose target repo layout + naming; inventory current top-level folders; draft archive approach for legacy code; list BCO1 entry point + dependencies for Phase 02.
-  - Owners: Paul Doyle (structure proposal, approvals); Developer persona later to implement skeleton and migration notes.
-  - Risks: hidden relative-path dependencies; dataset duplication; unclear BCO1 entry; large files inflating structure; breaking run docs.
-  - Handoffs: finalize Phase 01 structure docs -> Developer builds directories; QA Lead validates doc links + run paths.
-  - Target: complete Phase 01 structure proposal in the next working session.
+  - Status: structure defined and skeleton created; Phase 01 scope met pending validation/doc cleanup.
+  - Next actions: resolve dataset-duplication plan (RPR-2026-01-003); update project summary to Phase 02; handoff to QA for structure verification.
+  - Risks: hidden relative-path dependencies; dataset duplication; large legacy artifacts.
+  - Handoffs: QA validates directory layout + docs; Developer applies archive-only changes.
 - Developer:
-- Developer:
-  - Proposed structure (draft): `src/` (core Python), `scripts/` (CLI helpers), `data/` (datasets), `assets/` (images), `docs/` (project docs), `tests/`, `tools/` (one-off utilities), `archive/` (legacy code), plus top-level `README.md` + `pyproject.toml` (or `requirements.txt`).
-  - Migration entry points: define a single runnable module (BCO1) under `src/` with a thin CLI wrapper in `scripts/`.
-  - Data handling: standardize relative paths via a config/module (no hard-coded `../datasets`).
-  - Inventory needed before Phase 02: exact BCO1 entry script, required datasets/images, any generated artifacts to exclude.
-  - Risks: implicit imports from `python_scripts/`, path assumptions in scripts, and large binary assets.
+  - Implemented skeleton layout (`src/`, `scripts/`, `data/`, `assets/`, `docs/`, `tests/`, `tools/`, `archive/`) with `.gitkeep` placeholders.
+  - Defined repo-root path conventions to avoid `../datasets` assumptions.
 - QA Lead:
-- Optional personas (Product Manager, Repository Steward, Docs Expert, UI/Accessibility, Bug Triage, Automation/Tooling, Architect, Security, Ops/Observability, Performance/Cost, DBA):
-- Optional personas (Product Manager, Repository Steward, Docs Expert, UI/Accessibility, Bug Triage, Automation/Tooling, Architect, Security, Ops/Observability, Performance/Cost, DBA):
-  - Repository Steward:
-    - Keep AI_first intact; new structure should live at repo root without mixing process assets.
-    - Use `archive/` for legacy code (read-only) and document what's archived + why.
-    - Align top-level layout with common Python repos (README, pyproject/requirements, src/tests/docs).
-    - Avoid renaming existing AI_first paths; update run instructions instead.
+  - Validate directories exist, AI_first remains untouched, and docs reference the new layout.
+  - Confirm no deletions; legacy content only archived.
+- Optional personas:
+  - Repository Steward: preserve AI_first; archive legacy; keep canonical data under `data/`.
+- DoD checklist reference: `AI_first/docs/templates/review_checklists.md`
 
 ## Plan
 - Confirm target repo structure and naming conventions.
@@ -79,10 +74,14 @@
   - Known path risk: hard-coded `../datasets/` relative to `python_scripts/`.
 
 ## Validation
-- Pending.
+- Confirmed skeleton directories and placeholder files exist.
+- Reviewed structure/run notes in repository docs.
+- Runtime validation deferred to Phase 02 (BCO1 execution).
 
 ## Documentation updates
-- Pending.
+- Added contributor guide `AGENTS.md` for the new layout.
+- Documented repository structure and entry point in `README.md`.
 
 ## Issues & lessons
-- Pending.
+- Dataset duplication remains open pending archive plan (RPR-2026-01-003).
+- Archive-only rule reduces risk; avoid destructive cleanup without approval.

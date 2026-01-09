@@ -1,7 +1,7 @@
 # Phase 01 — Repo Structure
 
 - **Objective:** Define and build the new repository structure for the Python star visualization project.
-- **Status:** Active.
+- **Status:** Closed.
 - **Scope:** In: directory layout, naming conventions, top-level docs, migration entry points; Out: code migration or refactoring.
 - **Target structure:**
   - `src/` core Python package (e.g., `starmaps/`).

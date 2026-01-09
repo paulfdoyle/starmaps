@@ -12,9 +12,9 @@ Internal source of truth for projects and phases. Use PM.html for the visual por
   - Phases root: `AI_first/projects/reporestructure/phases/`
   - Issues log: use BugMgmt entries with `project: "reporestructure"`
   - Phases overview:
-    - Phase 01 — Repo Structure (active): see `AI_first/projects/reporestructure/phases/phase01/`.
-    - Phase 02 — BCO1 Migration & Archive (planned): see `AI_first/projects/reporestructure/phases/phase02/`.
-    - Phase 03 — Performance & Technical Review (planned): see `AI_first/projects/reporestructure/phases/phase03/`.
+    - Phase 01 — Repo Structure (closed): see `AI_first/projects/reporestructure/phases/phase01/`.
+    - Phase 02 — BCO1 Migration & Archive (closed): see `AI_first/projects/reporestructure/phases/phase02/`.
+    - Phase 03 — Performance & Technical Review (active): see `AI_first/projects/reporestructure/phases/phase03/`.
   - Phase directory map:
     - `AI_first/projects/reporestructure/phases/phase01/phase_definition.md` — definition of Phase 01.
     - `AI_first/projects/reporestructure/phases/phase01/action_plan_phase01.md` — action plan for Phase 01 (links to stage actions under `AI_first/projects/reporestructure/phases/phase01/actions/`).

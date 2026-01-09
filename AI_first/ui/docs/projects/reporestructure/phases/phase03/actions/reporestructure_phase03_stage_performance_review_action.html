@@ -40,7 +40,12 @@
 <li>Project/Process Manager:</li>
 <li>Developer:</li>
 <li>QA Lead:</li>
-<li>Optional personas (Product Manager, Repository Steward, Docs Expert, UI/Accessibility, Bug Triage, Automation/Tooling, Architect, Security, Ops/Observability, Performance/Cost, DBA):</li>
+<li>Optional personas:</li>
+<li>Performance/Cost:</li>
+<li>Baseline review: data-load vectorization, text surface caching, click-only hit-testing, and info-surface caching already applied.</li>
+<li>Primary hotspots: per-star update loop (position + magnitude + rect), full-scan visibility filtering, and random twinkle per update.</li>
+<li>Priority improvements: precompute distance bands/masks, rotate only visible indices, reduce per-update randomness, avoid re-allocating rects, vectorize magnitude updates.</li>
+<li>DoD checklist reference: <code>AI_first/docs/templates/review_checklists.md</code></li>
 </ul>
 <h2>Plan</h2>
 <ul>
@@ -50,7 +55,18 @@
 </ul>
 <h2>Execution notes</h2>
 <ul>
-<li>Pending.</li>
+<li>Initial performance review completed with prioritized recommendations and acceptance targets (see below).</li>
+<li>Highest-impact targets:</li>
+<li>Reduce visibility filtering to precomputed masks per filter and distance bands.</li>
+<li>Rotate only visible points instead of the full star set.</li>
+<li>Throttle twinkle updates to a fixed cadence instead of per update.</li>
+<li>Medium-impact targets:</li>
+<li>Cache rects and update centers instead of recreating each frame.</li>
+<li>Vectorize magnitude/index updates for visible stars.</li>
+<li>Precompute per-star distance-to-origin and reuse for radius comparisons.</li>
+<li>Low-impact targets:</li>
+<li>Avoid per-frame string formatting unless values change (already done).</li>
+<li>Gate debug logging behind flags (already done).</li>
 </ul>
 <h2>Validation</h2>
 <ul>
@@ -62,7 +78,7 @@
 </ul>
 <h2>Issues &amp; lessons</h2>
 <ul>
-<li>Pending.</li>
+<li>Performance review started; capture profiling traces (cProfile/line_profiler) before further refactors.</li>
 </ul>
       </div>
     </section>

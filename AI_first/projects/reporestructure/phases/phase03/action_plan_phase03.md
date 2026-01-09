@@ -4,7 +4,7 @@
 - **Stage list:**
   - Performance review stage -> `AI_first/projects/reporestructure/phases/phase03/actions/reporestructure_phase03_stage_performance_review_action.md`
 - **Objective:** Establish performance baselines and a technical improvement plan.
-- **Status:** Planned.
+- **Status:** Active.
 - **Scope/files:** In: profiling notes, architecture review, refactor backlog; Out: major rewrites or new features.
 - **Dependencies:** Phase 02 BCO1 Migration & Archive.
 - **Risks/assumptions:** Keep benchmarks repeatable and environment-scoped.

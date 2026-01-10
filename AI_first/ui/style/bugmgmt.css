@@ -14,9 +14,10 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: "Space Grotesk", "Inter", "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
+  line-height: 1.6;
 }
 .container {
   max-width: 1200px;
@@ -456,6 +457,7 @@ details.block {
   border-bottom: 1px solid var(--border);
   text-align: left;
   font-size: 14px;
+  line-height: 1.45;
 }
 .pm-table th:first-child,
 .pm-table td:first-child {
@@ -465,12 +467,27 @@ details.block {
 }
 .pm-table td:first-child { overflow-wrap: anywhere; }
 .table-wrap thead { background: var(--accent-light); }
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--accent-light);
+}
 .table-wrap tbody tr:last-child td { border-bottom: none; }
 .table-wrap tbody tr[data-link],
 .table-wrap tbody tr[data-id] { cursor: pointer; }
 .table-wrap tbody tr[data-link]:hover,
 .table-wrap tbody tr[data-id]:hover { background: #f8fafc; }
 .table-wrap tbody tr.is-selected { background: var(--accent-light); }
+.table-wrap tbody tr[data-link]:focus-visible,
+.table-wrap tbody tr[data-id]:focus-visible,
+.nav-link:focus-visible,
+.btn:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--accent-light);
+}
 .fw { font-weight: 600; }
 .badge {
   display: inline-block;
@@ -553,4 +570,7 @@ details.block {
   .hero { flex-direction: column; align-items: flex-start; }
   .filter-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .details-header { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 480px) {
+  .filter-grid { grid-template-columns: 1fr; gap: 10px; }
 }

@@ -22,7 +22,7 @@
     </header>
 
     <div class="summary">
-      <div class="summary-card"><div class="muted small">Phases</div><div class="h6">1</div></div>
+      <div class="summary-card"><div class="muted small">Phases</div><div class="h6">2</div></div>
       <div class="summary-card"><div class="muted small">Active Phase</div><div class="h6">Phase 01</div></div>
       <div class="summary-card"><div class="muted small">Status</div><div class="h6">Planning</div></div>
     </div>
@@ -65,6 +65,15 @@
               <td><span class="badge status-open">Planning</span></td>
               <td>TBD</td>
             </tr>
+            <tr data-phase="Phase 02 — HUD Refinement &amp; Alignment"
+                data-phase-def-id="phase02-def"
+                data-action-plan-id="phase02-plan"
+                data-stage-action-id="phase02-action"
+                tabindex="0" role="button" aria-label="View Phase 02 details">
+              <td>Phase 02 — HUD Refinement &amp; Alignment</td>
+              <td><span class="badge status-open">Planning</span></td>
+              <td>TBD</td>
+            </tr>
 <!-- PHASE_ROWS_END -->
           </tbody>
         </table>
@@ -89,6 +98,15 @@
     </template>
     <template id="phase01-action">
       <ul class="muted small"><li><strong>Phase/Stage:</strong> Phase 01 — Discovery &amp; Direction (audit).</li><li><strong>Objective:</strong> Define scope, workflow, and expectations for UI Redesign.</li><li><strong>Scope:</strong> In: planning docs and acceptance criteria; Out: implementation.</li><li><strong>Acceptance:</strong> Persona notes recorded; scope documented; DoD referenced.</li><li><strong>Dependencies/data:</strong> <code>AI_first/docs/process.md</code>, <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/ui_redesign/project_summary_ui_redesign.md</code></li><li><strong>Outputs:</strong> Updated phase/stage docs and any related process updates.</li><li><strong>Layout proposal summary:</strong> Left HUD panel (320-360px) with grouped sections (header, filters, distance, brightness, toggles, help); unified controls and cached UI surfaces.</li><li><strong>Layout proposal highlights:</strong> Filters and toggles grouped top-to-bottom; distance/brightness controls use a single slider each with numeric readout.</li><li><strong>Interaction model:</strong> Primary mouse controls with optional +/- micro-controls; keyboard/scroll hints live in a collapsible help footer.</li><li><strong>Performance approach:</strong> Cache HUD panels and labels; re-render dynamic values only on change.</li><li><strong>UI spec draft:</strong> Palette, typography scale, component sizes, layout grid, and interaction mapping.</li><li><strong>Definition of Done:</strong> Persona notes filled, DoD checklist referenced, validation steps recorded.</li></ul>
+    </template>
+    <template id="phase02-def">
+      <ul class="muted small"><li><strong>Objective:</strong> Refine the BCO HUD layout for alignment, spacing, and readability; remove overlapping elements and standardize control sizing.</li><li><strong>Status:</strong> Planning.</li><li><strong>Scope:</strong> In: HUD layout adjustments, control alignment, spacing and padding, typographic contrast for labels/help, consistent control sizing; Out: new features or engine changes.</li><li><strong>Definition of completion:</strong> HUD renders without overlap, with consistent padding/gaps, aligned labels/readouts, and 44px+ hit targets; updated stage action and validation notes.</li><li><strong>Stages:</strong></li><li>HUD polish stage -&gt; <code>AI_first/projects/ui_redesign/phases/phase02/actions/ui_redesign_phase02_stage_hud_polish_action.md</code></li><li><strong>Dependencies:</strong> Phase 01 Discovery &amp; Direction complete.</li><li><strong>Risks/assumptions:</strong> Pygame panel remains fixed-width; ensure changes don’t regress performance or readability at small heights.</li><li><strong>Links:</strong> <code>AI_first/docs/projectplan.md</code>, <code>AI_first/projects/ui_redesign/project_summary_ui_redesign.md</code></li></ul>
+    </template>
+    <template id="phase02-plan">
+      <ul class="muted small"><li><strong>Phase:</strong> see <code>AI_first/projects/ui_redesign/phases/phase02/phase_definition.md</code>.</li><li><strong>Stage list:</strong></li><li>HUD polish stage -&gt; <code>AI_first/projects/ui_redesign/phases/phase02/actions/ui_redesign_phase02_stage_hud_polish_action.md</code></li><li><strong>Objective:</strong> Align HUD controls, remove overlap, and improve readability/affordance for the BCO UI.</li><li><strong>Scope/files:</strong> In: <code>src/starmaps/bco1.py</code> HUD layout, padding, alignment, control sizing, label/readout positioning; Out: rendering engine changes.</li><li><strong>Dependencies:</strong> Phase 01 audit complete.</li><li><strong>Risks/assumptions:</strong> Fixed-width panel; must retain 60+ FPS and avoid per-frame allocations.</li><li><strong>Persona actions:</strong> Project/Process Manager → Developer → QA Lead; add UI/Accessibility and Performance/Cost as needed.</li><li><strong>Validation:</strong> HUD renders without overlap at common resolutions; controls align to a grid; readouts padded; hit targets &gt;= 44px; brightness/distance interactions consistent.</li><li><strong>Rollback:</strong> Revert HUD layout changes if performance or readability regresses.</li><li><strong>Ready checklist:</strong> Audit notes available; screenshot feedback captured.</li><li><strong>Done checklist:</strong> Stage action populated with persona notes, validation results, and updated HUD screenshots.</li></ul>
+    </template>
+    <template id="phase02-action">
+      <ul class="muted small"><li><strong>Phase/Stage:</strong> Phase 02 — HUD Refinement &amp; Alignment (hud_polish).</li><li><strong>Objective:</strong> Eliminate HUD overlap and tighten visual hierarchy for the BCO UI panel.</li><li><strong>Scope:</strong> In: panel layout, spacing, control alignment, label/readout positioning, hit target sizing; Out: new features or rendering engine changes.</li><li><strong>Acceptance:</strong> HUD shows no overlap across typical resolutions, controls align to a grid, labels/readouts are padded, hit targets meet ~44px, and readability improves (contrast/padding).</li><li><strong>Dependencies/data:</strong> <code>src/starmaps/bco1.py</code>, Phase 01 audit notes/screenshot feedback.</li><li><strong>Outputs:</strong> Updated HUD layout in code, before/after screenshots, validation notes.</li><li><strong>Definition of Done:</strong> Persona notes filled, validation recorded (including at least one run), updated docs/screenshots linked.</li></ul>
     </template>
 <!-- PHASE_TEMPLATES_END -->
 

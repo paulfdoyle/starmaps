@@ -10,6 +10,7 @@ from math import *
 from pathlib import Path
 from pyquaternion import Quaternion
 import pygame.gfxdraw
+import re
 import warnings
 from numba import jit
 from numba import njit
@@ -81,17 +82,40 @@ screen_width, screen_height = 1000,1000     # default size
 BF = 2.512  # brightness factor Created a bigger size difference between stars on the screen
 BRM6 = 4  # Base radius for magnitude 6 stars, this will control if mag 6 is visible.
 FPS = 90  # Frames per second
-JSON_FILE = str(LEGACY_DATA_FILE)  # Legacy data path; prefer DEFAULT_DATA_FILE
+JSON_FILE = str(DEFAULT_DATA_FILE)  # Canonical dataset path (data/processed)
 ScreenScaler = 0.9
-MAG_OFFSET = 0
+MAG_OFFSET = 2
 
 PROFILE_UI = os.environ.get("BCO_UI_PROFILE") == "1"
 PROFILE_INTERVAL_MS = 2000
 PROFILE_MAX_FRAMES = int(os.environ.get("BCO_UI_PROFILE_FRAMES", "0") or 0)
+NORMALIZE_BRIGHTNESS = os.environ.get("BCO_NORMALIZE_BRIGHTNESS") == "1"
+AUTO_NORMALIZE_FAR = True
+FAR_NORMALIZE_START = 400  # start blending toward normalized brightness
+FAR_NORMALIZE_END = 1200   # fully normalized at/after this distance
+
+# Glyph sizing presets
+USE_FIXED_SPRITE_SIZE = True  # default observational mode: fixed sprite size per magnitude bucket
+SIZE_ENCODING_SCALE = 1.3     # applied when size encoding toggle is on
+USE_ABSOLUTE_BRIGHTNESS = False  # Absolute (10 pc) mode flag
+BRIGHTNESS_FROM_SUN = True       # Sun-centric apparent brightness flag
+BRIGHTNESS_MODE = "sun"          # 'sun', 'absolute_clamp'
+SUN_SCALE_FACTOR = 0.35          # render the Sun at 35% of its base sprite size
+
+# Absolute mode tuning
+ABS_CLAMP_MIN = -2.0   # faintest allowed apparent mag when clamped/soft
+ABS_CLAMP_MAX = 10.0   # brightest allowed apparent mag when clamped/soft
+ABS_AUTO_TARGET = 6.0  # target mid apparent magnitude for auto-exposure
+ABS_AUTO_MAX_OFFSET = 6.0  # limit how far auto exposure can shift
+ABS_SOFT_COMPRESSION = 0.6  # <1 compresses contrast around target
+ABS_CLAMP_MAX_SIZE = 14     # px cap for overly large sprites in Star Size mode
+STAR_SIZE_BOOST_MAX = 6.0   # max extra brightness offset when close in Star Size mode
+STAR_SIZE_BOOST_DISTANCE = 300.0  # distance where boost tapers to 0
+MAX_SPRITE_SIZE = 20
 
 UI_STYLE = {
     "bg": (6, 10, 14),
-    "panel": (12, 16, 22, 200),
+    "panel": (12, 16, 22, 220),
     "panel_border": (255, 255, 255, 40),
     "text": (230, 236, 244),
     "text_muted": (168, 178, 191),
@@ -110,6 +134,32 @@ UI_CACHE = {
     "exit_surfaces": None,
     "arrow_surfaces": None,
     "brightness_surfaces": None,
+    "constellation_surfaces": None,
+}
+INFO_HIT_ZONES = []
+CONSTELLATION_CHOICES = [
+    ("", "None"),
+    ("UMa", "Ursa Major"),
+    ("UMi", "Ursa Minor"),
+    ("Ori", "Orion"),
+    ("Cas", "Cassiopeia"),
+    ("Cru", "Crux"),
+    ("Cyg", "Cygnus"),
+    ("Lyr", "Lyra"),
+    ("Sco", "Scorpius"),
+    ("Sgr", "Sagittarius"),
+    ("Leo", "Leo"),
+    ("Tau", "Taurus"),
+    ("And", "Andromeda"),
+    ("Aql", "Aquila"),
+]
+CONSTELLATION_NAME_TO_ABBR = {name: abbr for abbr, name in CONSTELLATION_CHOICES if abbr}
+CONSTELLATION_OVERRIDES = {
+    "Ori": {
+        # Belt + bright corners only
+        25930, 26311, 26727,  # Mintaka, Alnilam, Alnitak
+        24436, 27989, 25336, 27366,  # Rigel, Betelgeuse, Bellatrix, Saiph
+    },
 }
 UI_FONTS = {}
 UI_FONT_PATHS = {
@@ -119,6 +169,118 @@ UI_FONT_PATHS = {
 
 def clamp_value(value, min_value, max_value):
     return max(min_value, min(max_value, value))
+
+BRIGHTNESS_MODE_ORDER = ["sun", "absolute_clamp"]
+
+def cycle_brightness_mode(current_mode, delta=1):
+    try:
+        idx = BRIGHTNESS_MODE_ORDER.index(current_mode)
+    except ValueError:
+        idx = 0
+    idx = (idx + delta) % len(BRIGHTNESS_MODE_ORDER)
+    return BRIGHTNESS_MODE_ORDER[idx]
+
+def mode_flags(mode):
+    """Return (brightness_from_sun, use_absolute)."""
+    if mode == "sun":
+        return True, False
+    return False, True
+
+def brightness_mode_label(mode):
+    labels = {
+        "sun": "Mode: Sun Apparent",
+        "absolute_clamp": "Mode: Star Size",
+    }
+    return labels.get(mode, "Mode: Sun Apparent")
+
+# Keep the Sun anchored at the origin/canvas center as a reference
+def anchor_sun_sprite(sun_sprite, canvas_center, scale):
+    if sun_sprite is None:
+        return
+    sun_sprite.pos_3d = np.array([0.0, 0.0, 0.0])
+    sun_sprite.pos_world = sun_sprite.pos_3d.copy()
+    sun_sprite.observerPOS = (0, 0, 0)
+    sun_sprite.last_observer_pos = (0, 0, 0)
+    sun_sprite.magindex = 0
+    sun_sprite.variant = 0
+    base_img = sun_sprite.surface_array[0][0]
+    target_w = max(1, int(base_img.get_width() * SUN_SCALE_FACTOR))
+    target_h = max(1, int(base_img.get_height() * SUN_SCALE_FACTOR))
+    sun_sprite.image = pygame.transform.smoothscale(base_img, (target_w, target_h))
+    sun_sprite.pos_2d = set_2d_position(sun_sprite.pos_3d, scale, canvas_center)
+    sun_sprite.rect = sun_sprite.image.get_rect(center=sun_sprite.pos_2d)
+
+def set_sun_toggle_flash(control_vars, duration_ms=600):
+    control_vars['sun_toggle_flash_until'] = pygame.time.get_ticks() + duration_ms
+
+# Default MagOffset presets per mode
+MODE_BRIGHTNESS_PRESET = {
+    "sun": MAG_OFFSET,
+    "absolute_clamp": -6,
+}
+
+def build_parsec_steps():
+    steps = []
+    steps.extend(range(1, 11, 1))      # 1-10
+    steps.extend(range(12, 21, 2))     # 12-20
+    steps.extend(range(22, 51, 2))     # 22-50
+    steps.extend(range(55, 101, 5))    # 55-100
+    steps.extend(range(110, 201, 10))  # 110-200
+    steps.extend(range(225, 401, 25))  # 225-400
+    steps.extend(range(425, 801, 25))  # 425-800
+    steps.extend(range(850, 1301, 50)) # 850-1300
+    steps.extend(range(1350, 1501, 50))# 1350-1500
+    return steps
+
+def nearest_index_for_parsecs(target, steps):
+    return min(range(len(steps)), key=lambda i: abs(steps[i] - target))
+
+def parse_constellation(raw_value, info_text):
+    raw_value = (raw_value or "").strip()
+    abbr = ""
+    if raw_value:
+        # Take trailing three-letter code if present
+        letters = "".join([c for c in raw_value if c.isalpha()])
+        if len(letters) >= 3:
+            abbr_candidate = letters[-3:].title()
+            if any(abbr_candidate.lower() == c.lower() for c, _ in CONSTELLATION_CHOICES):
+                abbr = abbr_candidate
+    if not abbr:
+        info = info_text or ""
+        for name, code in CONSTELLATION_NAME_TO_ABBR.items():
+            if name.lower() in info.lower():
+                abbr = code
+                break
+    if abbr and any(abbr.lower() == c.lower() for c, _ in CONSTELLATION_CHOICES):
+        # Normalize casing to Title (e.g., Ari, Tau)
+        return abbr[0].upper() + abbr[1:].lower()
+    return ""
+
+def cycle_constellation_index(current_index, delta):
+    total = len(CONSTELLATION_CHOICES)
+    return (current_index + delta) % total
+
+def get_constellation_choice(index):
+    index = max(0, min(len(CONSTELLATION_CHOICES) - 1, index))
+    return CONSTELLATION_CHOICES[index]
+
+def clamp_scale(scale, min_scale=0.85, max_scale=1.15):
+    return max(min_scale, min(max_scale, scale))
+
+def compute_apparent_mag_from_distance(abs_mag, distance_parsecs, brightness_offset):
+    if distance_parsecs <= 0:
+        distance_parsecs = 1e-3
+    return abs_mag + 5 * (math.log10(distance_parsecs) - 1) - brightness_offset
+
+def effective_distance(dist, observer_pos, parsecs, normalize_enabled, auto_enabled):
+    ref_dist = observer_pos[2] if observer_pos and len(observer_pos) == 3 else dist
+    blend = 0.0
+    if normalize_enabled:
+        blend = 1.0
+    elif auto_enabled and parsecs is not None:
+        if parsecs >= FAR_NORMALIZE_START:
+            blend = clamp_value((parsecs - FAR_NORMALIZE_START) / (FAR_NORMALIZE_END - FAR_NORMALIZE_START), 0.0, 1.0)
+    return dist * (1 - blend) + ref_dist * blend
 
 def get_ui_font(size, weight="regular"):
     key = (size, weight)
@@ -136,6 +298,12 @@ def get_ui_font(size, weight="regular"):
 def compute_ui_scale(screen_width, screen_height):
     return clamp_value(min(screen_width / 1280.0, screen_height / 720.0), 0.85, 1.2)
 
+def get_canvas_center(canvas):
+    stored = UI_LAYOUT.get("canvas_center")
+    if stored:
+        return stored
+    return (canvas.get_width() // 2, canvas.get_height() // 2)
+
 def refresh_ui_layout(screen_width, screen_height):
     global slider_x, slider_y, slider_width, slider_height, circle_y
     global BRIGHTNESS_SLIDER_X, BRIGHTNESS_SLIDER_Y, BRIGHTNESS_SLIDER_WIDTH, BRIGHTNESS_SLIDER_HEIGHT
@@ -147,50 +315,83 @@ def refresh_ui_layout(screen_width, screen_height):
     if UI_LAYOUT.get("size") == (screen_width, screen_height) and UI_LAYOUT.get("scale") == ui_scale:
         return False
 
+    UI_FONTS["header"] = get_ui_font(int(22 * ui_scale), weight="medium")
+    UI_FONTS["section"] = get_ui_font(int(16 * ui_scale), weight="medium")
+    UI_FONTS["body"] = get_ui_font(int(14 * ui_scale), weight="regular")
+    UI_FONTS["micro"] = get_ui_font(int(12 * ui_scale), weight="regular")
+    UI_FONTS["button"] = get_ui_font(int(15 * ui_scale), weight="medium")
+    menu_font = UI_FONTS["button"]
+
     panel_x = int(16 * ui_scale)
     panel_y = int(16 * ui_scale)
-    panel_w = int(340 * ui_scale)
+    panel_w = int(300 * ui_scale)
     panel_h = int(screen_height * 0.88)
     padding = int(16 * ui_scale)
     section_gap = int(14 * ui_scale)
     control_gap = int(10 * ui_scale)
-    brightness_button_size = int(26 * ui_scale)
+    brightness_button_size = int(34 * ui_scale)
 
-    header_h = int(52 * ui_scale)
+    title_h = UI_FONTS["header"].get_height()
+    status_h = UI_FONTS["micro"].get_height()
+    header_h = title_h + status_h + int(12 * ui_scale)
     content_x = panel_x + padding
-    content_y = panel_y + padding + header_h + section_gap
     button_w = panel_w - 2 * padding
-    button_h = int(36 * ui_scale)
-    spacing = int(10 * ui_scale)
+    button_h = int(40 * ui_scale)
+    spacing = int(8 * ui_scale)
+    value_inset = int(12 * ui_scale)
 
-    arrow_button_width = int(28 * ui_scale)
-    arrow_button_height = int(28 * ui_scale)
-
-    slider_width = button_w - (arrow_button_width * 2 + control_gap * 2)
-    slider_height = max(4, int(4 * ui_scale))
-    slider_x = content_x
-    slider_y = content_y + (button_h + spacing) * len(MENU_OPTIONS) + section_gap + int(22 * ui_scale)
-    circle_y = slider_y
+    arrow_button_width = 0
+    arrow_button_height = 0
 
     circle_min_radius = int(8 * ui_scale)
     circle_max_radius = int(8 * ui_scale)
     BRIGHTNESS_CIRCLE_RADIUS = int(7 * ui_scale)
     SLIDER_HIT_PADDING = int(12 * ui_scale)
 
-    decrease_button_pos = (
-        slider_x + slider_width + control_gap,
-        slider_y - arrow_button_height // 2,
-    )
-    increase_button_pos = (
-        slider_x + slider_width + control_gap + arrow_button_width + control_gap,
-        slider_y - arrow_button_height // 2,
-    )
+    y_cursor = panel_y + padding + header_h + section_gap
 
+    # Filters section
+    filters_label_pos = (content_x, y_cursor)
+    y_cursor += UI_FONTS["section"].get_height() + int(8 * ui_scale)
+    MENU_LEFT_MARGIN = content_x
+    MENU_TOP_MARGIN = y_cursor
+    MENU_BUTTON_WIDTH = button_w
+    MENU_BUTTON_HEIGHT = button_h
+    MENU_SPACING = spacing
+    y_cursor += len(MENU_OPTIONS) * MENU_BUTTON_HEIGHT + (len(MENU_OPTIONS) - 1) * MENU_SPACING
+    y_cursor += section_gap
+
+    # Constellation section
+    constellation_label_pos = (content_x, y_cursor)
+    y_cursor += UI_FONTS["section"].get_height() + int(8 * ui_scale)
+    constellation_button_size = int(30 * ui_scale)
+    constellation_prev_pos = (content_x, y_cursor)
+    constellation_next_pos = (content_x + constellation_button_size + control_gap, y_cursor)
+    constellation_value_pos = (
+        constellation_next_pos[0] + constellation_button_size + control_gap,
+        y_cursor + max(0, (constellation_button_size - UI_FONTS["body"].get_height()) // 2),
+    )
+    y_cursor += constellation_button_size
+    y_cursor += section_gap
+
+    # Distance section
+    distance_label_pos = (content_x, y_cursor)
+    y_cursor += UI_FONTS["section"].get_height() + int(6 * ui_scale)
+    slider_x = content_x
+    slider_width = button_w
+    slider_height = max(4, int(4 * ui_scale))
+    slider_y = y_cursor + int(10 * ui_scale)
+    circle_y = slider_y
+    y_cursor = slider_y + int(20 * ui_scale)
+    y_cursor += section_gap
+
+    # Brightness section
+    brightness_label_pos = (content_x, y_cursor)
+    y_cursor += UI_FONTS["section"].get_height() + int(6 * ui_scale)
+    BRIGHTNESS_SLIDER_X = content_x
     BRIGHTNESS_SLIDER_WIDTH = button_w - (brightness_button_size * 2 + control_gap * 2)
     BRIGHTNESS_SLIDER_HEIGHT = slider_height
-    BRIGHTNESS_SLIDER_X = content_x
-    BRIGHTNESS_SLIDER_Y = slider_y + int(46 * ui_scale)
-
+    BRIGHTNESS_SLIDER_Y = y_cursor + int(10 * ui_scale)
     brightness_decrease_pos = (
         BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH + control_gap,
         BRIGHTNESS_SLIDER_Y - brightness_button_size // 2,
@@ -199,12 +400,21 @@ def refresh_ui_layout(screen_width, screen_height):
         BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH + control_gap + brightness_button_size + control_gap,
         BRIGHTNESS_SLIDER_Y - brightness_button_size // 2,
     )
+    y_cursor = BRIGHTNESS_SLIDER_Y + int(20 * ui_scale)
+    y_cursor += section_gap
 
-    MENU_LEFT_MARGIN = content_x
-    MENU_TOP_MARGIN = content_y
-    MENU_BUTTON_WIDTH = button_w
-    MENU_BUTTON_HEIGHT = button_h
-    MENU_SPACING = spacing
+    toggle_label_pos = (content_x, y_cursor)
+    y_cursor += UI_FONTS["section"].get_height() + int(6 * ui_scale)
+    toggle_button_h = int(32 * ui_scale)
+    toggle_button_w = button_w
+    mode_button_pos = (content_x, y_cursor)
+    y_cursor += toggle_button_h
+    sun_toggle_pos = (content_x, y_cursor)
+    y_cursor += toggle_button_h
+    y_cursor += section_gap
+
+    help_1_pos = (content_x, y_cursor)
+    help_2_pos = (content_x, y_cursor + UI_FONTS["micro"].get_height() + int(8 * ui_scale))
 
     UI_LAYOUT.clear()
     UI_LAYOUT.update(
@@ -214,40 +424,44 @@ def refresh_ui_layout(screen_width, screen_height):
             "panel_rect": pygame.Rect(panel_x, panel_y, panel_w, panel_h),
             "panel_padding": padding,
             "header_pos": (content_x, panel_y + padding),
-            "status_pos": (content_x, panel_y + padding + int(26 * ui_scale)),
-            "label_gap": int(18 * ui_scale),
+            "status_pos": (content_x, panel_y + padding + title_h + int(6 * ui_scale)),
+            "label_gap": int(10 * ui_scale),
         }
     )
-
-    UI_FONTS["header"] = get_ui_font(int(22 * ui_scale), weight="medium")
-    UI_FONTS["section"] = get_ui_font(int(16 * ui_scale), weight="medium")
-    UI_FONTS["body"] = get_ui_font(int(14 * ui_scale), weight="regular")
-    UI_FONTS["micro"] = get_ui_font(int(12 * ui_scale), weight="regular")
-    UI_FONTS["button"] = get_ui_font(int(15 * ui_scale), weight="medium")
-    menu_font = UI_FONTS["button"]
-
-    label_gap = UI_LAYOUT["label_gap"]
-    filters_label_y = MENU_TOP_MARGIN - label_gap - UI_FONTS["section"].get_height()
-    distance_label_y = slider_y - label_gap - UI_FONTS["section"].get_height()
-    brightness_label_y = BRIGHTNESS_SLIDER_Y - label_gap - UI_FONTS["section"].get_height()
-    help_y = BRIGHTNESS_SLIDER_Y + int(24 * ui_scale)
-    exit_size = (int(120 * ui_scale), int(30 * ui_scale))
-    exit_pos = (panel_x + padding, panel_y + padding)
+    star_gutter = int(12 * ui_scale)
+    panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+    canvas_center = (
+        panel_rect.right + star_gutter + (screen_width - panel_rect.right - star_gutter) // 2,
+        screen_height // 2,
+    )
+    exit_size = (int(124 * ui_scale), int(34 * ui_scale))
+    exit_pos = (panel_x + panel_w - padding - exit_size[0], panel_y + padding)
 
     UI_LAYOUT.update(
         {
-            "filters_label_pos": (MENU_LEFT_MARGIN, filters_label_y),
-            "distance_label_pos": (slider_x, distance_label_y),
-            "brightness_label_pos": (BRIGHTNESS_SLIDER_X, brightness_label_y),
-            "distance_value_right": slider_x + slider_width,
-            "brightness_value_right": BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH,
-            "help_1_pos": (BRIGHTNESS_SLIDER_X, help_y),
-            "help_2_pos": (BRIGHTNESS_SLIDER_X, help_y + UI_FONTS["micro"].get_height() + 4),
+            "filters_label_pos": filters_label_pos,
+            "constellation_label_pos": constellation_label_pos,
+            "constellation_prev_pos": constellation_prev_pos,
+            "constellation_next_pos": constellation_next_pos,
+            "constellation_button_size": constellation_button_size,
+            "constellation_value_pos": constellation_value_pos,
+            "distance_label_pos": distance_label_pos,
+            "brightness_label_pos": brightness_label_pos,
+            "toggle_label_pos": toggle_label_pos,
+            "mode_button_pos": mode_button_pos,
+            "mode_button_size": (toggle_button_w, toggle_button_h),
+            "sun_toggle_pos": sun_toggle_pos,
+            "sun_toggle_size": (toggle_button_w, toggle_button_h),
+            "distance_value_right": slider_x + slider_width - value_inset,
+            "brightness_value_right": BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH - value_inset,
+            "help_1_pos": help_1_pos,
+            "help_2_pos": help_2_pos,
             "exit_size": exit_size,
             "exit_pos": exit_pos,
             "brightness_button_size": brightness_button_size,
             "brightness_dec_pos": brightness_decrease_pos,
             "brightness_inc_pos": brightness_increase_pos,
+            "canvas_center": canvas_center,
         }
     )
 
@@ -268,8 +482,8 @@ def refresh_ui_layout(screen_width, screen_height):
         UI_CACHE["hud_static_surface"] = None
         UI_CACHE["menu_surfaces"] = None
         UI_CACHE["exit_surfaces"] = None
-        UI_CACHE["arrow_surfaces"] = None
         UI_CACHE["brightness_surfaces"] = None
+        UI_CACHE["constellation_surfaces"] = None
 
     build_ui_cache()
 
@@ -282,9 +496,11 @@ def build_ui_labels():
     return {
         "title": render_ui_text("BCO Star Map", UI_FONTS["header"], UI_STYLE["text"]),
         "filters": render_ui_text("Filters", UI_FONTS["section"], UI_STYLE["text_muted"]),
+        "constellation": render_ui_text("Constellation", UI_FONTS["section"], UI_STYLE["text_muted"]),
         "distance": render_ui_text("Distance (pc)", UI_FONTS["section"], UI_STYLE["text_muted"]),
         "brightness": render_ui_text("Brightness", UI_FONTS["section"], UI_STYLE["text_muted"]),
-        "help_1": render_ui_text("R/T, +/- or scroll over slider to adjust brightness", UI_FONTS["micro"], UI_STYLE["text_muted"]),
+        "toggles": render_ui_text("Mode", UI_FONTS["section"], UI_STYLE["text_muted"]),
+        "help_1": render_ui_text("Use slider or +/- to adjust brightness", UI_FONTS["micro"], UI_STYLE["text"]),
         "help_2": render_ui_text("Click a star to toggle info", UI_FONTS["micro"], UI_STYLE["text_muted"]),
     }
 
@@ -336,8 +552,10 @@ def build_ui_cache():
         offset_y = panel_rect.y
         hud_surface.blit(labels["title"], (UI_LAYOUT["header_pos"][0] - offset_x, UI_LAYOUT["header_pos"][1] - offset_y))
         hud_surface.blit(labels["filters"], (UI_LAYOUT["filters_label_pos"][0] - offset_x, UI_LAYOUT["filters_label_pos"][1] - offset_y))
+        hud_surface.blit(labels["constellation"], (UI_LAYOUT["constellation_label_pos"][0] - offset_x, UI_LAYOUT["constellation_label_pos"][1] - offset_y))
         hud_surface.blit(labels["distance"], (UI_LAYOUT["distance_label_pos"][0] - offset_x, UI_LAYOUT["distance_label_pos"][1] - offset_y))
         hud_surface.blit(labels["brightness"], (UI_LAYOUT["brightness_label_pos"][0] - offset_x, UI_LAYOUT["brightness_label_pos"][1] - offset_y))
+        hud_surface.blit(labels["toggles"], (UI_LAYOUT["toggle_label_pos"][0] - offset_x, UI_LAYOUT["toggle_label_pos"][1] - offset_y))
         hud_surface.blit(labels["help_1"], (UI_LAYOUT["help_1_pos"][0] - offset_x, UI_LAYOUT["help_1_pos"][1] - offset_y))
         hud_surface.blit(labels["help_2"], (UI_LAYOUT["help_2_pos"][0] - offset_x, UI_LAYOUT["help_2_pos"][1] - offset_y))
         UI_CACHE["hud_static_surface"] = hud_surface
@@ -360,18 +578,6 @@ def build_ui_cache():
             "hover": build_button_surface("Exit (Esc)", exit_size[0], exit_size[1], UI_STYLE["accent_alt"], UI_STYLE["text"]),
         }
 
-    if UI_CACHE.get("arrow_surfaces") is None:
-        UI_CACHE["arrow_surfaces"] = {
-            "left": {
-                "default": build_arrow_surface("left", arrow_button_width, arrow_button_height, UI_STYLE["border"], UI_STYLE["text"]),
-                "hover": build_arrow_surface("left", arrow_button_width, arrow_button_height, UI_STYLE["accent"], UI_STYLE["text"]),
-            },
-            "right": {
-                "default": build_arrow_surface("right", arrow_button_width, arrow_button_height, UI_STYLE["border"], UI_STYLE["text"]),
-                "hover": build_arrow_surface("right", arrow_button_width, arrow_button_height, UI_STYLE["accent"], UI_STYLE["text"]),
-            },
-        }
-
     if UI_CACHE.get("brightness_surfaces") is None:
         size = UI_LAYOUT.get("brightness_button_size", 26)
         UI_CACHE["brightness_surfaces"] = {
@@ -382,6 +588,18 @@ def build_ui_cache():
             "inc": {
                 "default": build_button_surface("+", size, size, UI_STYLE["border"], UI_STYLE["text_muted"]),
                 "hover": build_button_surface("+", size, size, UI_STYLE["accent_alt"], UI_STYLE["text"]),
+            },
+        }
+    if UI_CACHE.get("constellation_surfaces") is None:
+        size = UI_LAYOUT.get("constellation_button_size", 30)
+        UI_CACHE["constellation_surfaces"] = {
+            "prev": {
+                "default": build_button_surface("<", size, size, UI_STYLE["border"], UI_STYLE["text_muted"]),
+                "hover": build_button_surface("<", size, size, UI_STYLE["accent_alt"], UI_STYLE["text"]),
+            },
+            "next": {
+                "default": build_button_surface(">", size, size, UI_STYLE["border"], UI_STYLE["text_muted"]),
+                "hover": build_button_surface(">", size, size, UI_STYLE["accent_alt"], UI_STYLE["text"]),
             },
         }
 
@@ -418,8 +636,10 @@ class SIndex:
     NUM_EXOs = 18
     NAME = 19
     DESCRIPTION = 20
-    RAHRS = 21
-    EPOC = 22
+    CONSTELLATION = 21
+    LUM = 22
+    RAHRS = 23
+    EPOC = 24
 
 
 class CIndex:
@@ -518,36 +738,25 @@ mag_to_index = {
     -4: StarApparentMagIndex.MagMinus3point5
 }
 
-# Create a dictionary with manually set values for each index from 0 to 20
-index_parsecs = {
-    0: 1,
-    1: 2, 
-    2: 10,
-    3: 50,
-    4: 75,
-    5: 125,
-    6: 250,
-    7: 500,
-    8: 1000,
-    9: 1500
-
-}
+index_parsecs = build_parsec_steps()
+PARSEC_SHORTCUTS = [1, 5, 20, 50, 100, 200, 400, 750, 1000, 1500]
 key_to_scale = {
-    pygame.K_0: 0,
-    pygame.K_1: 1,
-    pygame.K_2: 2,
-    pygame.K_3: 3,
-    pygame.K_4: 4,
-    pygame.K_5: 5,
-    pygame.K_6: 6,
-    pygame.K_7: 7,
-    pygame.K_8: 8,
-    pygame.K_9: 9
+    pygame.K_0: nearest_index_for_parsecs(PARSEC_SHORTCUTS[0], index_parsecs),
+    pygame.K_1: nearest_index_for_parsecs(PARSEC_SHORTCUTS[1], index_parsecs),
+    pygame.K_2: nearest_index_for_parsecs(PARSEC_SHORTCUTS[2], index_parsecs),
+    pygame.K_3: nearest_index_for_parsecs(PARSEC_SHORTCUTS[3], index_parsecs),
+    pygame.K_4: nearest_index_for_parsecs(PARSEC_SHORTCUTS[4], index_parsecs),
+    pygame.K_5: nearest_index_for_parsecs(PARSEC_SHORTCUTS[5], index_parsecs),
+    pygame.K_6: nearest_index_for_parsecs(PARSEC_SHORTCUTS[6], index_parsecs),
+    pygame.K_7: nearest_index_for_parsecs(PARSEC_SHORTCUTS[7], index_parsecs),
+    pygame.K_8: nearest_index_for_parsecs(PARSEC_SHORTCUTS[8], index_parsecs),
+    pygame.K_9: nearest_index_for_parsecs(PARSEC_SHORTCUTS[9], index_parsecs),
 }
 
 # Function to get the value using the index (key)
 def get_pasec_from_index(index):
-    return int(index_parsecs.get(index))
+    index = max(0, min(len(index_parsecs) - 1, index))
+    return int(index_parsecs[index])
 
 def clamp_mag_offset(value):
     return max(BRIGHTNESS_MIN, min(BRIGHTNESS_MAX, value))
@@ -672,7 +881,7 @@ def load_custom_star_data(json_file_path):
         print("Loading data from file")
         required_columns = [
             'hip', 'mag', 'ra_decdeg', 'dec_decdeg', 'plx', 'pmra', 'pmdec', 'dist', 'absmag',
-            'kR', 'kG', 'kB', 'x', 'y', 'z', "GLON", "GLAT","C","sy_pnum","proper","info"
+            'kR', 'kG', 'kB', 'x', 'y', 'z', "GLON", "GLAT","C","sy_pnum","proper","info","name_constellation","lum"
         ]
         df = pd.read_json(json_file_path)
         df = df[required_columns]
@@ -680,7 +889,7 @@ def load_custom_star_data(json_file_path):
 
         df.columns = (
             'hip', 'magnitude', 'ra_degrees', 'dec_degrees', 'parallax_mas', 'ra_mas_per_year',
-            'dec_mas_per_year', 'distance_parsecs', 'absolutem', 'kR', 'kG', 'kB', '3dx', '3dy', '3dz', "GLON", "GLAT", "StarType","NumExo","name","Description"
+            'dec_mas_per_year', 'distance_parsecs', 'absolutem', 'kR', 'kG', 'kB', '3dx', '3dy', '3dz', "GLON", "GLAT", "StarType","NumExo","name","Description","Constellation","Lum"
         )
         # print("2-->",df.iloc[0])
 
@@ -856,7 +1065,7 @@ def cartesian_to_ra_dec(x, y, z):
 
 
 @jit(nopython=True)
-def calculate_apparent_magnitude(absolute_magnitude, distance_parsecs,star3dpos,observerPOS):
+def calculate_apparent_magnitude(absolute_magnitude, distance_parsecs):
     """
     Calculate the apparent magnitude of a celestial object given its absolute magnitude
     and distance in parsecs.
@@ -869,7 +1078,6 @@ def calculate_apparent_magnitude(absolute_magnitude, distance_parsecs,star3dpos,
         float: The apparent magnitude of the celestial object.
     """
  
-    distance_parsecs = calculate_distance(observerPOS,star3dpos)
     if distance_parsecs <= 0:
         distance_parsecs = 1e-3
 
@@ -1129,7 +1337,6 @@ def drawScreenUpdate(screen, canvas, bestHeight):
 def initialise_control_varaiables():
     control_vars = {
         'draw_frame': True,
-        'draw_sun': True,
         'draw_labels': True,
         'draw_scale': True,
         'test_color': True,
@@ -1137,7 +1344,7 @@ def initialise_control_varaiables():
         'MagType':    "APP",
         'ViewScale':  1,   # this is in parsecs
         'MaxParsecIndex' : 0, # Initialise to begin
-        'MagOffset':   0,
+        'MagOffset':   2,
         'brightness_changed': False,
         'Position':   (0,0,20),
         'sphere': 20,
@@ -1145,6 +1352,14 @@ def initialise_control_varaiables():
         'scale': 0, # The scale needs to be worked out based on the radius of the frame circle.
         'dragging_distance': False,
         'dragging_brightness': False,
+        'constellation_index': 0,
+        'constellation_abbr': "",
+        'brightness_mode': "sun",     # 'sun', 'absolute_clamp'
+        'brightness_from_sun': True,  # derived for compatibility
+        'inspect_mode': False,
+        'show_sun': True,
+        'sun_toggle_flash_until': 0,
+        'size_encoding': False,  # False = fixed sprite size per magnitude bucket; True = encode size from magnitude
 
     }
     return control_vars
@@ -1301,7 +1516,7 @@ def projection3D_to_2D (x, y, z,scale,canvas_center):
 
 class StarSprite(pygame.sprite.Sprite):
     def __init__(self, surface_array, start_pos, visibility, glon, glat, scale, canvas_center,
-                 parsecs, abs_mag, star_type_index, exo_planet_num, hr, hip, hd, visibility_radius,name,description, star_type_name):
+                 parsecs, abs_mag, star_type_index, exo_planet_num, hr, hip, hd, visibility_radius,name,description, star_type_name, constellation_abbr=None, lum_value=None):
         super().__init__()
         self.surface_array = surface_array  # Reference to external 2D list or array [magnitude][variant]
         self.variant = 0
@@ -1314,7 +1529,7 @@ class StarSprite(pygame.sprite.Sprite):
         self.canvas_center = canvas_center
         self.image = self.surface_array[8][self.variant]  # use a default mag index
         self.rect = None
-        self.Parsecs = parsecs  # This is a distance from a specific position, can be SOL, or a relative position
+        self.Parsecs = parsecs  # Distance from observer (world frame)
         self.ABS_Mag = abs_mag
         self.StarType = star_type_index
         self.StarTypeName = star_type_name
@@ -1324,9 +1539,13 @@ class StarSprite(pygame.sprite.Sprite):
         self.HD = hd
         self.NAME = name
         self.Description = description
+        self.ConstellationAbbr = constellation_abbr or ""
+        self.Lum = lum_value if lum_value is not None else 0.0
         self.observerPOS = (0,0,1)
         self.last_observer_pos = None
         self.last_twinkle_ms = 0
+        self.clamp_surface_cache = {}
+        self.pos_world = self.pos_3d.copy()
         self.update_2d_position()
 
         self.info = (
@@ -1360,42 +1579,68 @@ class StarSprite(pygame.sprite.Sprite):
     def create_info_surface(self):
         if self.info_surface is not None:
             return
-        # Create a font for rendering text
-        font = pygame.font.Font(None, FIndex.VERYSMALL)  # Adjust the font size as needed
 
-        # Render the text to a surface, splitting lines
-        lines = self.info.split('\n')
-        max_width = 0
-        total_height = 0
-        text_surfaces = []
-        
-        for line in lines:
-            text_surface = font.render(line, True, (255, 255, 255))  # White text
-            text_surfaces.append(text_surface)
-            max_width = max(max_width, text_surface.get_width())
-            total_height += text_surface.get_height()
+        scale = UI_LAYOUT.get("scale", 1.0) or 1.0
+        title_font = get_ui_font(int(18 * scale), weight="medium")
+        body_font = get_ui_font(int(15 * scale), weight="regular")
+        accent_color = UI_STYLE["accent"]
+        text_color = UI_STYLE["text"]
+        muted_color = UI_STYLE["text_muted"]
 
-        # Calculate padding and border thickness
-        padding = 10  # Space around the text
-        border_thickness = 5  # Thickness of the white border
+        def wrap_text(text, font, max_width):
+            words = text.split()
+            lines = []
+            current = ""
+            for word in words:
+                test = (current + " " + word).strip()
+                if font.size(test)[0] <= max_width:
+                    current = test
+                else:
+                    if current:
+                        lines.append(current)
+                    current = word
+            if current:
+                lines.append(current)
+            return lines
 
-        # Create a surface to hold the entire text block, including padding and border
+        max_text_width = 240
+        title_text = self.NAME if self.NAME else "Star"
+        title_surface = title_font.render(title_text, True, accent_color)
+
+        lines = []
+        lines.append(body_font.render(f"HIP {self.HIP} • {self.StarTypeName}", True, text_color))
+        lines.append(body_font.render(f"Distance: {self.Parsecs:.1f} pc", True, text_color))
+        lines.append(body_font.render(f"Abs mag: {self.ABS_Mag:.2f}", True, muted_color))
+        if self.ExoPlanetNum > 0:
+            lines.append(body_font.render(f"Exoplanets: {self.ExoPlanetNum}", True, text_color))
+        if self.Description and str(self.Description).strip().lower() not in ("nan", "none", ""):
+            for desc_line in wrap_text(str(self.Description).strip(), body_font, max_text_width):
+                lines.append(body_font.render(desc_line, True, muted_color))
+
+        padding = 10
+        gap = 4
+        border_thickness = 2
+
+        max_width = max(
+            [title_surface.get_width()] + [surface.get_width() for surface in lines] + [max_text_width]
+        )
         surface_width = max_width + 2 * padding
-        surface_height = total_height + 2 * padding
+        surface_height = title_surface.get_height() + gap
+        surface_height += sum(surface.get_height() + gap for surface in lines)
+        surface_height += padding * 2 - gap
+
         info_surface = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
-        # Fill the surface with a barely transparent background
-        info_surface.fill((0, 0, 0, 128))  # RGBA (0, 0, 0, 128) -> Semi-transparent black
+        info_surface.fill((12, 16, 22, 200))
+        pygame.draw.rect(info_surface, UI_STYLE["accent"], (0, 0, surface_width, surface_height), border_thickness, border_radius=8)
 
-        # Draw a thick white border with rounded corners
-        pygame.draw.rect(info_surface, (255, 255, 255), (0, 0, surface_width, surface_height), border_thickness, border_radius=10)
-
-        # Blit the individual text surfaces onto the main surface
         y_offset = padding
-        for text_surface in text_surfaces:
-            info_surface.blit(text_surface, (padding, y_offset))
-            y_offset += text_surface.get_height()
+        info_surface.blit(title_surface, (padding, y_offset))
+        y_offset += title_surface.get_height() + gap
 
-        # Store the created surface and return it along with its 2D position
+        for surface in lines:
+            info_surface.blit(surface, (padding, y_offset))
+            y_offset += surface.get_height() + gap
+
         self.info_surface = info_surface
         self.info_pos = self.pos_2d  # Adjust position as needed
 
@@ -1437,34 +1682,70 @@ class StarSprite(pygame.sprite.Sprite):
     def set_visibility_radius(self, new_radius):
         self.visibility_radius = new_radius   
 
-    def set_position_3d(self, new_pos, scale, observerPos, magindex=None):
+    def set_position_3d(self, new_pos_view, scale, observerPos, magindex=None):
         self.scale = scale
-        self.pos_3d = new_pos
+        self.pos_3d = new_pos_view
         self.observerPOS = observerPos
         if magindex is not None:
             self.magindex = magindex
             self.last_observer_pos = observerPos
-        self.update_2d_position(recompute_mag=magindex is None)
+        self.update_2d_position(recompute_mag=magindex is None, allow_twinkle=False)
 
-    def update_2d_position(self, recompute_mag=True):
+    def update_2d_position(self, recompute_mag=True, allow_twinkle=True):
         now_ms = pygame.time.get_ticks()
-        if now_ms - self.last_twinkle_ms >= TWINKLE_INTERVAL_MS:
+        if allow_twinkle and (now_ms - self.last_twinkle_ms >= TWINKLE_INTERVAL_MS):
             self.variant = self.select_random_variant()
             self.last_twinkle_ms = now_ms
 
         self.pos_2d = set_2d_position(self.pos_3d, self.scale, self.canvas_center)
 
         if recompute_mag and self.last_observer_pos != self.observerPOS:
-            self.magindex = get_index_from_magnitude(
-                calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs, self.pos_3d, self.observerPOS)
-            )
+            if USE_ABSOLUTE_BRIGHTNESS:
+                dist = 10.0
+            elif BRIGHTNESS_FROM_SUN:
+                dx = self.pos_world[0]
+                dy = self.pos_world[1]
+                dz = self.pos_world[2]
+                dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+            else:
+                dx = self.pos_world[0] - self.observerPOS[0]
+                dy = self.pos_world[1] - self.observerPOS[1]
+                dz = self.pos_world[2] - self.observerPOS[2]
+                dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+                dist = effective_distance(
+                    dist,
+                    self.observerPOS,
+                    self.observerPOS[2] if len(self.observerPOS) == 3 else None,
+                    NORMALIZE_BRIGHTNESS,
+                    AUTO_NORMALIZE_FAR,
+                )
+            self.magindex = get_index_from_magnitude(compute_apparent_mag_from_distance(self.ABS_Mag, dist, MAG_OFFSET))
             self.last_observer_pos = self.observerPOS
 
         new_image = self.surface_array[self.magindex][self.variant]
+        if self.HIP in (0, 99998) or self.NAME.strip().lower() == "sun":
+            # Keep the sun bright and avoid scaling/twinkle changes
+            new_image = self.surface_array[0][0]
+        if BRIGHTNESS_MODE == "absolute_clamp":
+            cache_key = (self.magindex, self.variant)
+            cached = self.clamp_surface_cache.get(cache_key)
+            if cached is not None:
+                new_image = cached
+            else:
+                w, h = new_image.get_size()
+                if w > ABS_CLAMP_MAX_SIZE or h > ABS_CLAMP_MAX_SIZE:
+                    target_w = min(w, ABS_CLAMP_MAX_SIZE)
+                    target_h = min(h, ABS_CLAMP_MAX_SIZE)
+                    new_image = pygame.transform.smoothscale(new_image, (int(target_w), int(target_h)))
+                self.clamp_surface_cache[cache_key] = new_image
         if self.rect is None:
             self.image = new_image
             self.rect = self.image.get_rect(center=self.pos_2d)
         elif new_image is not self.image:
+            # Preserve custom sizing for Sun if already scaled
+            if (self.HIP in (0, 99998) or self.NAME.strip().lower() == "sun") and self.image is not None:
+                sun_w, sun_h = self.image.get_size()
+                new_image = pygame.transform.smoothscale(new_image, (sun_w, sun_h))
             self.image = new_image
             if self.rect.size != self.image.get_size():
                 self.rect = self.image.get_rect(center=self.pos_2d)
@@ -1518,17 +1799,70 @@ class StarSprite(pygame.sprite.Sprite):
         self.update_2d_position()
 
  
-    def set_distance (self, newdist_parsecs):
+    def set_distance(self, newdist_parsecs):
         self.Parsecs = newdist_parsecs
-        self.magnitude = get_index_from_magnitude(calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs,self.pos_3d,self.observerPOS))
+        if USE_ABSOLUTE_BRIGHTNESS:
+            dist = 10.0
+        elif BRIGHTNESS_FROM_SUN:
+            dist = newdist_parsecs
+        else:
+            dist = effective_distance(
+                newdist_parsecs,
+                self.observerPOS,
+                self.observerPOS[2] if len(self.observerPOS) == 3 else None,
+                NORMALIZE_BRIGHTNESS,
+                AUTO_NORMALIZE_FAR,
+            )
+        self.magnitude = get_index_from_magnitude(compute_apparent_mag_from_distance(self.ABS_Mag, dist, MAG_OFFSET))
 
     def set_magnitude(self):
-        self.magnitude = get_index_from_magnitude(calculate_apparent_magnitude(self.ABS_Mag, self.Parsecs,self.pos_3d,self.observerPOS))
+        if USE_ABSOLUTE_BRIGHTNESS:
+            dist = 10.0
+        elif BRIGHTNESS_FROM_SUN:
+            dist = self.Parsecs
+        else:
+            dist = effective_distance(
+                self.Parsecs,
+                self.observerPOS,
+                self.observerPOS[2] if len(self.observerPOS) == 3 else None,
+                NORMALIZE_BRIGHTNESS,
+                AUTO_NORMALIZE_FAR,
+            )
+        self.magnitude = get_index_from_magnitude(compute_apparent_mag_from_distance(self.ABS_Mag, dist, MAG_OFFSET))
         self.update_2d_position()
 
     def set_variant(self, variant):
         self.variant = variant
         self.update_2d_position()
+
+    def maybe_twinkle(self, now_ms):
+        if now_ms - self.last_twinkle_ms < TWINKLE_INTERVAL_MS:
+            return
+        self.variant = self.select_random_variant()
+        self.last_twinkle_ms = now_ms
+        new_image = self.surface_array[self.magindex][self.variant]
+        if BRIGHTNESS_MODE == "absolute_clamp":
+            cache_key = (self.magindex, self.variant)
+            cached = self.clamp_surface_cache.get(cache_key)
+            if cached is not None:
+                new_image = cached
+            else:
+                w, h = new_image.get_size()
+                if w > ABS_CLAMP_MAX_SIZE or h > ABS_CLAMP_MAX_SIZE:
+                    target_w = min(w, ABS_CLAMP_MAX_SIZE)
+                    target_h = min(h, ABS_CLAMP_MAX_SIZE)
+                    new_image = pygame.transform.smoothscale(new_image, (int(target_w), int(target_h)))
+                self.clamp_surface_cache[cache_key] = new_image
+        if self.rect is None:
+            self.image = new_image
+            self.rect = self.image.get_rect(center=self.pos_2d)
+            return
+        if new_image is not self.image:
+            self.image = new_image
+            if self.rect.size != self.image.get_size():
+                self.rect = self.image.get_rect(center=self.pos_2d)
+            else:
+                self.rect.center = self.pos_2d
 
     def set_glon(self, glon):
         self.glon = glon
@@ -1661,18 +1995,25 @@ def batch_create_frame_sprites(surfaces, positions,scale,canvas_centre,reference
     return sprites
 
 def generate_star_sprites(control_vars, canvas, canvas_set, star_data_np):
-    canvas_center = (canvas.get_width() // 2, canvas.get_height() // 2)
+    canvas_center = get_canvas_center(canvas)
     scale = control_vars['scale'] * ScreenScaler
     sprites = pygame.sprite.Group()
     star_points = []
     sprite_index_map = {}
     max_star_type = len(canvas_set) - 1
 
-    for star in star_data_np:
+    for idx, star in enumerate(star_data_np):
         hip_id = int(star[SIndex.HIP])  # Convert HIP ID to integer
         star_type_raw = int(star[SIndex.STAR_TYPE])
         if star_type_raw < 0 or star_type_raw > max_star_type:
             star_type_raw = 0
+        constellation_abbr = parse_constellation(star[SIndex.CONSTELLATION], star[SIndex.DESCRIPTION])
+        lum_val = star[SIndex.LUM] if len(star) > SIndex.LUM else None
+        if not constellation_abbr:
+            for code, hips in CONSTELLATION_OVERRIDES.items():
+                if hip_id in hips:
+                    constellation_abbr = code
+                    break
         sprite = StarSprite(
             canvas_set[star_type_raw],
             (star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]),
@@ -1691,7 +2032,9 @@ def generate_star_sprites(control_vars, canvas, canvas_set, star_data_np):
             control_vars['sphere'],
             star[SIndex.NAME],
             star[SIndex.DESCRIPTION],
-            get_star_description_by_index(star_type_raw)
+            get_star_description_by_index(star_type_raw),
+            constellation_abbr,
+            lum_val,
         )
         sprites.add(sprite)
         star_point = np.array([star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]])
@@ -1704,13 +2047,15 @@ def generate_star_sprites(control_vars, canvas, canvas_set, star_data_np):
     return star_points, sprites, sprite_index_map
 
 def generate_star_sprites_old(control_vars, canvas, canvas_set, star_data_np):
-    canvas_center = (canvas.get_width() // 2, canvas.get_height() // 2)
+    canvas_center = get_canvas_center(canvas)
     scale = control_vars['scale'] * ScreenScaler
     sprites = pygame.sprite.Group()
     print("Building star sprites..")
     star_points = []
 
     for star in star_data_np:
+        constellation_abbr = parse_constellation(star[SIndex.CONSTELLATION], star[SIndex.DESCRIPTION])
+        lum_val = star[SIndex.LUM] if len(star) > SIndex.LUM else None
         sprite = StarSprite(
             canvas_set[int(star[SIndex.STAR_TYPE])],
             (star[SIndex.Dx], star[SIndex.Dy], star[SIndex.Dz]),
@@ -1729,7 +2074,9 @@ def generate_star_sprites_old(control_vars, canvas, canvas_set, star_data_np):
             control_vars['sphere'],
             star[SIndex.NAME],
             star[SIndex.DESCRIPTION],
-            get_star_description_by_index(int(star[SIndex.STAR_TYPE]))
+            get_star_description_by_index(int(star[SIndex.STAR_TYPE])),
+            constellation_abbr,
+            lum_val,
             
         )
         sprites.add(sprite)
@@ -1789,25 +2136,72 @@ def update_visibility(sprites, visibility_radius, custom_sprites, option, filter
 
     return custom_sprites, visible_indices
 
-def compute_magindices_for_indices(visible_indices, xy_sq, z_vals, abs_mags, observer_pos, all_star_points):
+def compute_magindices_for_indices(
+    visible_indices,
+    xy_sq,
+    z_vals,
+    abs_mags,
+    observer_pos,
+    all_star_points,
+    brightness_offset,
+    normalize=False,
+    ref_distance=None,
+    auto_normalize=False,
+    parsecs=None,
+    use_absolute=False,
+    brightness_from_sun=False,
+    brightness_mode="sun",
+):
     if visible_indices is None or visible_indices.size == 0:
         return np.array([], dtype=int)
 
-    if observer_pos[0] == 0 and observer_pos[1] == 0:
-        dz = z_vals[visible_indices] - observer_pos[2]
-        dist = np.sqrt(xy_sq[visible_indices] + dz * dz)
+    points = all_star_points[visible_indices]
+    if brightness_from_sun:
+        # Measure distance from the Sun/origin regardless of observer
+        dist = np.linalg.norm(points, axis=1)
     else:
-        points = all_star_points[visible_indices]
+        # Distance from observer to star (world space)
         dx = points[:, 0] - observer_pos[0]
         dy = points[:, 1] - observer_pos[1]
         dz = points[:, 2] - observer_pos[2]
         dist = np.sqrt(dx * dx + dy * dy + dz * dz)
-
     dist = np.maximum(dist, 1e-3)
-    apparent = abs_mags[visible_indices] + 5 * (np.log10(dist) - 1) - MAG_OFFSET
+
+    use_ref = None if brightness_from_sun else (ref_distance if normalize else None)
+    if use_absolute:
+        effective_dist = np.full_like(dist, 10.0)  # absolute magnitude reference distance
+    elif use_ref is not None:
+        effective_dist = np.full_like(dist, use_ref)
+    else:
+        effective_dist = dist
+
+    # Auto exposure: shift brightness to keep visible stars in a readable band
+    auto_offset = 0.0
+    if brightness_mode == "absolute_clamp" and parsecs is not None:
+        # Star Size mode: boost brightness when the sphere is small so nearby stars stay visible
+        falloff = clamp_value(parsecs / STAR_SIZE_BOOST_DISTANCE, 0.0, 1.0)
+        auto_offset = STAR_SIZE_BOOST_MAX * (1.0 - falloff)
+
+    apparent = abs_mags[visible_indices] + 5 * (np.log10(effective_dist) - 1) - (brightness_offset + auto_offset)
+
+    # Tone mapping for non-sun modes
+    if brightness_mode == "absolute_clamp":
+        apparent = np.clip(apparent, ABS_CLAMP_MIN, ABS_CLAMP_MAX)
+
     abs_diff = np.abs(mags[:, None] - apparent[None, :])
     closest = np.argmin(abs_diff, axis=0)
     return indices[closest]
+
+
+def update_twinkle_for_visible(sprite_list, visible_indices):
+    """
+    Throttle twinkle updates to visible sprites only.
+    """
+    if visible_indices is None or visible_indices.size == 0:
+        return
+    now_ms = pygame.time.get_ticks()
+    for idx in visible_indices:
+        sprite_list[idx].maybe_twinkle(now_ms)
 
 # @profile
 # def update_visibility(sprites, visibility_radius, custom_sprites):
@@ -1850,8 +2244,12 @@ class CustomSpriteGroup(pygame.sprite.Group):
 
 
     def drawInfo(self, surface, parsecs):
+        global INFO_HIT_ZONES
+        INFO_HIT_ZONES = []
         sprites = self.sprites()
         for spr in sprites:
+            if not spr.infoVisible:
+                continue
             # Check if the sprite has a reference distance set
             if not hasattr(spr, 'ref_distance'):
                 # Set the reference distance to the current parsecs value the first time the label is drawn
@@ -1860,12 +2258,8 @@ class CustomSpriteGroup(pygame.sprite.Group):
             # Calculate the scale factor based on the reference distance
             scale_factor = spr.ref_distance / parsecs
 
-            # Limit the scale factor to a maximum of 1 (to prevent scaling larger than the original size)
-            scale_factor = min(scale_factor, 1.0)
-
-            # Skip drawing the label if the scale factor is less than 0.5 (meaning the size would be halved or more)
-            if scale_factor < 0.25:
-                continue
+            # Clamp scale to avoid disappearing labels when zoomed out
+            scale_factor = clamp_value(scale_factor, 0.4, 1.0)
 
             # Create the info surface (assuming this generates the original size)
             spr.create_info_surface()
@@ -1889,6 +2283,9 @@ class CustomSpriteGroup(pygame.sprite.Group):
 
             # Blit the scaled surface
             surface.blit(scaled_info_surface, (offset_x, offset_y))
+            info_rect = scaled_info_surface.get_rect(topleft=(offset_x, offset_y))
+            spr.last_info_rect = info_rect
+            INFO_HIT_ZONES.append((info_rect, spr))
 
 
     def drawInfo_old(self,surface,parsecs):
@@ -1904,6 +2301,27 @@ class CustomSpriteGroup(pygame.sprite.Group):
         for spr in sprites:
             spr.setInfoVisible(False)
 
+
+def draw_constellation_highlights(surface, sprites, active_abbr):
+    if not active_abbr:
+        return
+    highlight_color = UI_STYLE["accent"]
+    override_hips = CONSTELLATION_OVERRIDES.get(active_abbr, set())
+    for spr in sprites:
+        if not getattr(spr, "ConstellationAbbr", ""):
+            continue
+        if override_hips:
+            # Use explicit HIP list for this constellation
+            try:
+                if int(spr.HIP) not in override_hips:
+                    continue
+            except Exception:
+                continue
+        else:
+            if spr.ConstellationAbbr.lower() != active_abbr.lower():
+                continue
+        radius = max(spr.rect.width, spr.rect.height) // 2 + 8
+        pygame.draw.circle(surface, highlight_color, spr.rect.center, radius, width=3)
 
 def update_visibility_old(sprites, visibility_radius):
 
@@ -1921,28 +2339,37 @@ def update_visibility_old(sprites, visibility_radius):
     return custom_sprites
 
 def find_star_by_position(sprites, x, y ):
-    found = False  # use this to only return the first hit on a star
-    custom_sprites = CustomSpriteGroup()
+    """Toggle info visibility for the nearest star within a padded radius; keep existing info-visible stars."""
+    info_group = CustomSpriteGroup()
     for star in sprites:
         if star.infoVisible:
-            custom_sprites.add(star)
-        variance = abs(star.pos_2d[0]-star.rect[0])/2
-        if variance < 5:
-            variance = 5
-        if not found:
-            if abs(star.pos_2d[0] - x) <= variance and abs(star.pos_2d[1] - y) <= variance:
-                found = True
-                if star.infoVisible:
-                    star.setInfoVisible(False)
-                    custom_sprites.remove(star)
-                    print ("removed ", star.NAME)
+            info_group.add(star)
 
-                else:
-                    star.setInfoVisible(True)
-                    custom_sprites.add(star)
+    if x is None or y is None:
+        return info_group
 
+    nearest_star = None
+    nearest_dist = float("inf")
+    for star in sprites:
+        cx, cy = star.pos_2d  # use rendered position
+        hit_radius = max(star.rect.width, star.rect.height, 24)  # generous hit target
+        dist = math.hypot(cx - x, cy - y)
+        if dist <= hit_radius and dist < nearest_dist:
+            nearest_dist = dist
+            nearest_star = star
 
-    return custom_sprites
+    if nearest_star is None:
+        return info_group
+
+    if nearest_star.infoVisible:
+        nearest_star.setInfoVisible(False)
+        info_group.remove(nearest_star)
+        print("removed ", nearest_star.NAME)
+    else:
+        nearest_star.setInfoVisible(True)
+        info_group.add(nearest_star)
+
+    return info_group
 
                
     #         if star.ExoPlanetNum > 0:
@@ -1952,7 +2379,7 @@ def find_star_by_position(sprites, x, y ):
 
 def generate_frame_sprites(control_vars,canvas):
     
-    canvas_center = (canvas.get_width() // 2, canvas.get_height() // 2)
+    canvas_center = get_canvas_center(canvas)
     scale = control_vars['scale']*ScreenScaler
 
     frame_surfaces = create_circle_surfaces(CIndex.CYAN, 6 ) 
@@ -2003,8 +2430,8 @@ def showFPS(FPS_text,frame_count,start_time):
 
 
 # Handle the keyboard events
-def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotate,x_offset,y_offset,canvas_scale,parsecs_changed,decrease_button_rect,increase_button_rect,brightness_dec_rect,brightness_inc_rect,mouse_held,last_repeat_time,quit_button_rect,menu_rects):
-    global observerPOS, circle_x, circle_radius
+def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotate,x_offset,y_offset,canvas_scale,parsecs_changed,brightness_dec_rect,brightness_inc_rect,constellation_prev_rect,constellation_next_rect,mouse_held,last_repeat_time,quit_button_rect,menu_rects, mode_button_rect, sun_toggle_rect):
+    global observerPOS, circle_x, circle_radius, INFO_HIT_ZONES
     max_index = max(0, control_vars.get('MaxParsecIndex', 1) - 1)
 
     def apply_view_scale_change(delta):
@@ -2013,8 +2440,10 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
         if view_index != control_vars['ViewScale']:
             control_vars['ViewScale'] = view_index
             parsecs = get_pasec_from_index(view_index)
-            control_vars['Position'] = (0, 0, parsecs)
-            observerPOS = (0, 0, parsecs)
+            control_vars['sphere'] = parsecs
+            if control_vars.get('inspect_mode'):
+                control_vars['Position'] = (0, 0, parsecs)
+                observerPOS = (0, 0, parsecs)
             parsecs_changed = True
             slider_progress = 1 - (view_index / max_index) if max_index > 0 else 1
             circle_x = slider_x + slider_progress * slider_width
@@ -2031,6 +2460,17 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
         if event.type == pygame.MOUSEBUTTONDOWN:
             # Get the mouse position
             mouse_x, mouse_y = pygame.mouse.get_pos()
+            if event.button == 1:
+                scaled_mouse_x = (mouse_x - x_offset) / canvas_scale
+                scaled_mouse_y = (mouse_y - y_offset) / canvas_scale
+            if event.button == 1 and INFO_HIT_ZONES:
+                label_clicked = False
+                for rect, spr in list(INFO_HIT_ZONES):
+                    if rect.collidepoint(mouse_x, mouse_y):
+                        spr.setInfoVisible(False)
+                        label_clicked = True
+                if label_clicked:
+                    continue
             #control_vars, parsecs = menu.handle_mouse_click((scaled_mouse_x,scaled_mouse_y),control_vars, parsecs)
 
             if event.button in (4, 5):
@@ -2055,11 +2495,6 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
 
             if event.button == 1:
                 click_consumed = False
-                change = handle_arrow_click(event, decrease_button_rect, increase_button_rect)
-                if change != 0:
-                    apply_view_scale_change(-1 if change < 0 else 1)
-                    click_consumed = True
-
                 if brightness_dec_rect.collidepoint(mouse_x, mouse_y):
                     control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
                     control_vars['brightness_changed'] = True
@@ -2067,6 +2502,31 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                 elif brightness_inc_rect.collidepoint(mouse_x, mouse_y):
                     control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
                     control_vars['brightness_changed'] = True
+                    click_consumed = True
+                elif mode_button_rect.collidepoint(mouse_x, mouse_y):
+                    control_vars['brightness_mode'] = cycle_brightness_mode(control_vars.get('brightness_mode', 'sun'), 1)
+                    control_vars['brightness_from_sun'], use_absolute = mode_flags(control_vars['brightness_mode'])
+                    control_vars['inspect_mode'] = use_absolute
+                    observerPOS = (0, 0, 0 if control_vars['brightness_from_sun'] else parsecs)
+                    control_vars['Position'] = observerPOS
+                    if control_vars['brightness_mode'] in MODE_BRIGHTNESS_PRESET:
+                        control_vars['MagOffset'] = clamp_mag_offset(MODE_BRIGHTNESS_PRESET[control_vars['brightness_mode']])
+                        control_vars['brightness_changed'] = True
+                    parsecs_changed = True
+                    click_consumed = True
+                elif sun_toggle_rect.inflate(6, 6).collidepoint(mouse_x, mouse_y):
+                    control_vars['show_sun'] = not control_vars.get('show_sun', True)
+                    set_sun_toggle_flash(control_vars)
+                    print(f"Show Sun toggled -> {control_vars['show_sun']}")
+                    parsecs_changed = True  # force visibility refresh for sun removal/addition
+                    click_consumed = True
+                elif constellation_prev_rect.collidepoint(mouse_x, mouse_y):
+                    control_vars['constellation_index'] = cycle_constellation_index(control_vars['constellation_index'], -1)
+                    control_vars['constellation_abbr'] = CONSTELLATION_CHOICES[control_vars['constellation_index']][0]
+                    click_consumed = True
+                elif constellation_next_rect.collidepoint(mouse_x, mouse_y):
+                    control_vars['constellation_index'] = cycle_constellation_index(control_vars['constellation_index'], 1)
+                    control_vars['constellation_abbr'] = CONSTELLATION_CHOICES[control_vars['constellation_index']][0]
                     click_consumed = True
 
                 for index, rect in enumerate(menu_rects):
@@ -2085,7 +2545,7 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                     slider_width,
                     SLIDER_HIT_PADDING,
                 )
-                if is_on_distance and not decrease_button_rect.collidepoint(mouse_x, mouse_y) and not increase_button_rect.collidepoint(mouse_x, mouse_y):
+                if is_on_distance:
                     control_vars['dragging_distance'] = True
                     circle_x, circle_radius, position_value = update_circle_position_and_size(mouse_x, max_index)
                     if control_vars['ViewScale'] != position_value:
@@ -2129,23 +2589,6 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
                 control_vars['MagOffset'] = clamp_mag_offset(update_brightness_offset_from_mouse(mouse_x))
                 control_vars['brightness_changed'] = True
 
-        if event.type == pygame.MOUSEWHEEL:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            if is_point_on_slider(
-                mouse_x,
-                mouse_y,
-                BRIGHTNESS_SLIDER_X,
-                BRIGHTNESS_SLIDER_Y,
-                BRIGHTNESS_SLIDER_WIDTH,
-                SLIDER_HIT_PADDING,
-            ):
-                if event.y > 0:
-                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] + 1)
-                elif event.y < 0:
-                    control_vars['MagOffset'] = clamp_mag_offset(control_vars['MagOffset'] - 1)
-                control_vars['brightness_changed'] = True
-
-
            # Handle mouse down and mouse up events
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left mouse button down
             mouse_held = True
@@ -2164,6 +2607,21 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
 
             if event.key == pygame.K_m:
                 control_vars['MagType'] = "APP" if control_vars['MagType'] == "REL" else "REL"
+            if event.key == pygame.K_i:
+                control_vars['brightness_mode'] = cycle_brightness_mode(control_vars.get('brightness_mode', 'sun'), 1)
+                control_vars['brightness_from_sun'], use_absolute = mode_flags(control_vars['brightness_mode'])
+                control_vars['inspect_mode'] = use_absolute
+                observerPOS = (0, 0, 0 if control_vars['brightness_from_sun'] else parsecs)
+                control_vars['Position'] = observerPOS
+                if control_vars['brightness_mode'] in MODE_BRIGHTNESS_PRESET:
+                    control_vars['MagOffset'] = clamp_mag_offset(MODE_BRIGHTNESS_PRESET[control_vars['brightness_mode']])
+                    control_vars['brightness_changed'] = True
+                parsecs_changed = True  # force recompute with new brightness anchor
+            if event.key == pygame.K_s:
+                control_vars['show_sun'] = not control_vars.get('show_sun', True)
+                set_sun_toggle_flash(control_vars)
+                print(f"Show Sun toggled -> {control_vars['show_sun']}")
+                parsecs_changed = True  # force visibility refresh for sun removal/addition
 
             if event.key == pygame.K_MINUS:
                 apply_view_scale_change(1)
@@ -2195,10 +2653,6 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
 
             if event.key == pygame.K_f:
                 control_vars['draw_frame'] = not control_vars['draw_frame']
-
-            if event.key == pygame.K_s:
-                control_vars['draw_sun'] = not control_vars['draw_sun']
-                print(f"Sun {'On' if control_vars['draw_sun'] else 'Off'}")
 
             if event.key == pygame.K_l:
                 control_vars['draw_labels'] = not control_vars['draw_labels']
@@ -2238,14 +2692,6 @@ def handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotat
 
 
    # Handle auto-repeat while mouse is held down
-    if mouse_held and not control_vars.get('dragging_distance'):
-        mouse_pos = pygame.mouse.get_pos()  # Get the current mouse position
-        change, last_repeat_time = handle_arrow_hold(mouse_pos, decrease_button_rect, increase_button_rect, last_repeat_time)
-
-        if change != 0:
-            print(f"Change: {change}")  # Output 1 for increase, -1 for decrease
-
-            apply_view_scale_change(-1 if change < 0 else 1)
     return True, parsecs, current_orientation, rotate,scaled_mouse_x, scaled_mouse_y,clearInfo, parsecs_changed, mouse_held, last_repeat_time
 
 def count_stars(sprite_group):
@@ -2506,6 +2952,32 @@ def draw_brightness_buttons(screen, dec_rect, inc_rect):
     draw_rounded_border_button(screen, "-", dec_rect, UI_STYLE["border"], dec_hover)
     draw_rounded_border_button(screen, "+", inc_rect, UI_STYLE["border"], inc_hover)
 
+def draw_constellation_controls(screen, control_vars, prev_rect, next_rect, value_pos):
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    prev_hover = prev_rect.collidepoint(mouse_x, mouse_y)
+    next_hover = next_rect.collidepoint(mouse_x, mouse_y)
+    surfaces = UI_CACHE.get("constellation_surfaces")
+    if surfaces:
+        screen.blit(surfaces["prev"]["hover" if prev_hover else "default"], prev_rect.topleft)
+        screen.blit(surfaces["next"]["hover" if next_hover else "default"], next_rect.topleft)
+    else:
+        draw_rounded_border_button(screen, "<", prev_rect, UI_STYLE["border"], prev_hover)
+        draw_rounded_border_button(screen, ">", next_rect, UI_STYLE["border"], next_hover)
+    _, display_name = CONSTELLATION_CHOICES[control_vars.get('constellation_index', 0)]
+    value_surface = render_ui_text(display_name, UI_FONTS["body"], UI_STYLE["text"])
+    screen.blit(value_surface, value_pos)
+
+def draw_toggle_button(screen, rect, text, active):
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    hover = rect.collidepoint(mouse_x, mouse_y)
+    fill = (*UI_STYLE["accent"], 40) if active else None
+    border = UI_STYLE["accent"] if active else UI_STYLE["border"]
+    text_color = UI_STYLE["text"] if active else UI_STYLE["text_muted"]
+    btn = build_button_surface(text, rect.width, rect.height, border, text_color, fill_color=fill)
+    if hover and not active:
+        btn = build_button_surface(text, rect.width, rect.height, UI_STYLE["accent_alt"], UI_STYLE["text"])
+    screen.blit(btn, rect.topleft)
+
 
 @profile
 def main():
@@ -2521,14 +2993,15 @@ def main():
     canvas = screen
     global circle_x, circle_radius  # Declare them as global
     global observerPOS
-    global MAG_OFFSET
+    global MAG_OFFSET, NORMALIZE_BRIGHTNESS, AUTO_NORMALIZE_FAR, USE_ABSOLUTE_BRIGHTNESS, BRIGHTNESS_FROM_SUN, BRIGHTNESS_MODE
 
-    # Define the rectangles for the buttons
-    decrease_button_rect = pygame.Rect(decrease_button_pos, (arrow_button_width, arrow_button_height))
-    increase_button_rect = pygame.Rect(increase_button_pos, (arrow_button_width, arrow_button_height))
     quit_button_rect = pygame.Rect(UI_LAYOUT["exit_pos"], UI_LAYOUT["exit_size"])
     brightness_dec_rect = pygame.Rect(UI_LAYOUT["brightness_dec_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
     brightness_inc_rect = pygame.Rect(UI_LAYOUT["brightness_inc_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
+    constellation_prev_rect = pygame.Rect(UI_LAYOUT["constellation_prev_pos"], (UI_LAYOUT["constellation_button_size"], UI_LAYOUT["constellation_button_size"]))
+    constellation_next_rect = pygame.Rect(UI_LAYOUT["constellation_next_pos"], (UI_LAYOUT["constellation_button_size"], UI_LAYOUT["constellation_button_size"]))
+    mode_button_rect = pygame.Rect(UI_LAYOUT["mode_button_pos"], UI_LAYOUT["mode_button_size"])
+    sun_toggle_rect = pygame.Rect(UI_LAYOUT["sun_toggle_pos"], UI_LAYOUT["sun_toggle_size"])
     menu_rects = build_menu_rects()
 
     mouse_held = False  # Track if the mouse button is being held
@@ -2537,9 +3010,20 @@ def main():
 
     # Initialise variables used to control the user experience
     control_vars = initialise_control_varaiables()
+    control_vars['brightness_from_sun'], use_absolute = mode_flags(control_vars.get('brightness_mode', 'sun'))
+    control_vars['inspect_mode'] = use_absolute
     control_vars['scale'] = (canvas_width//2) / control_vars['ViewScale']
     control_vars['MaxParsecIndex'] = len(index_parsecs)
     parsecs = get_pasec_from_index(control_vars['ViewScale'])     
+    observerPOS = (0, 0, 0)
+    control_vars['Position'] = observerPOS
+    control_vars['sphere'] = parsecs
+    NORMALIZE_BRIGHTNESS = control_vars.get('normalize_brightness', NORMALIZE_BRIGHTNESS)
+    AUTO_NORMALIZE_FAR = control_vars.get('auto_normalize_far', AUTO_NORMALIZE_FAR)
+    BRIGHTNESS_MODE = control_vars.get('brightness_mode', 'sun')
+    BRIGHTNESS_FROM_SUN, USE_ABSOLUTE_BRIGHTNESS = mode_flags(BRIGHTNESS_MODE)
+    control_vars['brightness_from_sun'] = BRIGHTNESS_FROM_SUN
+    control_vars['inspect_mode'] = USE_ABSOLUTE_BRIGHTNESS
 
     current_orientation = Quaternion()
     q_np = np.array([current_orientation.w, current_orientation.x, current_orientation.y, current_orientation.z])
@@ -2550,7 +3034,7 @@ def main():
 
 
 
-    canvas_center = (canvas.get_width() // 2, canvas.get_height() // 2)
+    canvas_center = get_canvas_center(canvas)
     scale = control_vars['scale'] * ScreenScaler
 
     # Load the data from the JSOPN file 
@@ -2573,10 +3057,67 @@ def main():
 
     all_star_points, all_stars_sprites_group, sprite_index_mapnew = generate_star_sprites(control_vars, canvas, canvas_set, star_data_np)
     sprite_list = list(all_stars_sprites_group)
+    sun_sprite = None
+    sun_index = None
+    for i, spr in enumerate(sprite_list):
+        if (hasattr(spr, "HIP") and spr.HIP in (0, 99998)) or spr.NAME.strip().lower() == "sun":
+            sun_sprite = spr
+            sun_index = i
+            base_img = sun_sprite.surface_array[0][0]
+            sun_sprite.image = pygame.transform.smoothscale(
+                base_img,
+                (
+                    max(1, int(base_img.get_width() * SUN_SCALE_FACTOR)),
+                    max(1, int(base_img.get_height() * SUN_SCALE_FACTOR)),
+                ),
+            )
+            break
+    if sun_sprite is None:
+        # Create a synthetic Sun sprite if not present in the dataset
+        surface_array = canvas_set[4] if len(canvas_set) > 4 else canvas_set[0]
+        sun_sprite = StarSprite(
+            surface_array,
+            (0, 0, 0),
+            True,
+            0.0,
+            0.0,
+            control_vars['scale'],
+            canvas_center,
+            0.1,
+            -26.0,
+            4,
+            0,
+            0,
+            99998,
+            0,
+            control_vars['sphere'] * ScreenScaler,
+            "Sun",
+            "Reference Sun",
+            "Sun-like",
+            "Sol",
+            lum_value=1.0,
+        )
+        base_img = sun_sprite.surface_array[0][0]
+        sun_sprite.image = pygame.transform.smoothscale(
+            base_img,
+            (
+                max(1, int(base_img.get_width() * SUN_SCALE_FACTOR)),
+                max(1, int(base_img.get_height() * SUN_SCALE_FACTOR)),
+            ),
+        )
+    anchor_sun_sprite(sun_sprite, canvas_center, control_vars['scale'])
+    constellation_masks = {}
+    for abbr, _ in CONSTELLATION_CHOICES:
+        if not abbr:
+            continue
+        mask = np.fromiter((spr.ConstellationAbbr == abbr for spr in sprite_list), dtype=bool, count=len(sprite_list))
+        if mask.any():
+            constellation_masks[abbr] = np.nonzero(mask)[0]
     dist_sq = np.einsum('ij,ij->i', all_star_points, all_star_points)
     xy_sq = np.einsum('ij,ij->i', all_star_points[:, :2], all_star_points[:, :2])
     z_vals = all_star_points[:, 2]
     abs_mags = np.fromiter((sprite.ABS_Mag for sprite in sprite_list), dtype=float, count=len(sprite_list))
+    lum_vals = np.fromiter((sprite.Lum for sprite in sprite_list), dtype=float, count=len(sprite_list))
     exo_mask = np.fromiter((sprite.ExoPlanetNum > 0 for sprite in sprite_list), dtype=bool, count=len(sprite_list))
     giant_mask = np.fromiter((sprite.StarType == 6 for sprite in sprite_list), dtype=bool, count=len(sprite_list))
     sun_mask = np.fromiter((sprite.StarType == 4 for sprite in sprite_list), dtype=bool, count=len(sprite_list))
@@ -2600,8 +3141,13 @@ def main():
     parsec_text = f"Distance: {parsecs:.1f} pc"
     parsec_surface = render_ui_text(parsec_text, UI_FONTS["body"], UI_STYLE["text"])
     last_parsec_text = parsec_text
-    fps_surface = render_ui_text(FPS_text, UI_FONTS["micro"], UI_STYLE["text_muted"])
+    fps_surface = render_ui_text(FPS_text, UI_FONTS["body"], UI_STYLE["text"])
     last_fps_text = FPS_text
+    if control_vars.get('brightness_mode') in MODE_BRIGHTNESS_PRESET:
+        control_vars['MagOffset'] = clamp_mag_offset(MODE_BRIGHTNESS_PRESET[control_vars['brightness_mode']])
+    mode_text = brightness_mode_label(control_vars.get('brightness_mode', 'sun'))
+    mode_surface = render_ui_text(mode_text, UI_FONTS["micro"], UI_STYLE["text_muted"])
+    last_mode_text = mode_text
     brightness_text = f"Brightness: {control_vars['MagOffset']:+d}"
     brightness_surface = render_ui_text(brightness_text, UI_FONTS["body"], UI_STYLE["text"])
     last_brightness_text = brightness_text
@@ -2640,11 +3186,13 @@ def main():
         layout_changed = refresh_ui_layout(screen.get_width(), screen.get_height())
         if layout_changed:
             ui_scale = UI_LAYOUT.get("scale", 1.0)
-            decrease_button_rect = pygame.Rect(decrease_button_pos, (arrow_button_width, arrow_button_height))
-            increase_button_rect = pygame.Rect(increase_button_pos, (arrow_button_width, arrow_button_height))
             quit_button_rect = pygame.Rect(UI_LAYOUT["exit_pos"], UI_LAYOUT["exit_size"])
             brightness_dec_rect = pygame.Rect(UI_LAYOUT["brightness_dec_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
             brightness_inc_rect = pygame.Rect(UI_LAYOUT["brightness_inc_pos"], (UI_LAYOUT["brightness_button_size"], UI_LAYOUT["brightness_button_size"]))
+            constellation_prev_rect = pygame.Rect(UI_LAYOUT["constellation_prev_pos"], (UI_LAYOUT["constellation_button_size"], UI_LAYOUT["constellation_button_size"]))
+            constellation_next_rect = pygame.Rect(UI_LAYOUT["constellation_next_pos"], (UI_LAYOUT["constellation_button_size"], UI_LAYOUT["constellation_button_size"]))
+            mode_button_rect = pygame.Rect(UI_LAYOUT["mode_button_pos"], UI_LAYOUT["mode_button_size"])
+            sun_toggle_rect = pygame.Rect(UI_LAYOUT["sun_toggle_pos"], UI_LAYOUT["sun_toggle_size"])
             menu_rects = build_menu_rects()
             max_index = max(0, control_vars['MaxParsecIndex'] - 1)
             view_index = max(0, min(max_index, control_vars['ViewScale']))
@@ -2654,17 +3202,25 @@ def main():
             last_parsec_text = ""
             last_fps_text = ""
             last_brightness_text = ""
+            canvas_center = get_canvas_center(canvas)
 
         # check for key input
-        running, parsecs, current_orientation,rotated,mouse_x,mouse_y,clearInfo, parsecs_changed, mouse_held,last_repeat_time = handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotated,x_offset,y_offset,canvas_scale,parsecs_changed, decrease_button_rect, increase_button_rect, brightness_dec_rect, brightness_inc_rect, mouse_held,last_repeat_time, quit_button_rect, menu_rects)
+        running, parsecs, current_orientation,rotated,mouse_x,mouse_y,clearInfo, parsecs_changed, mouse_held,last_repeat_time = handle_events(control_vars, key_to_scale, parsecs, current_orientation,rotated,x_offset,y_offset,canvas_scale,parsecs_changed, brightness_dec_rect, brightness_inc_rect,constellation_prev_rect,constellation_next_rect, mouse_held,last_repeat_time, quit_button_rect, menu_rects, mode_button_rect, sun_toggle_rect)
         MAG_OFFSET = control_vars['MagOffset']
+        NORMALIZE_BRIGHTNESS = control_vars.get('normalize_brightness', False)
+        AUTO_NORMALIZE_FAR = control_vars.get('auto_normalize_far', False)
+        BRIGHTNESS_MODE = control_vars.get('brightness_mode', 'sun')
+        BRIGHTNESS_FROM_SUN, USE_ABSOLUTE_BRIGHTNESS = mode_flags(BRIGHTNESS_MODE)
+        control_vars['brightness_from_sun'] = BRIGHTNESS_FROM_SUN
+        control_vars['inspect_mode'] = USE_ABSOLUTE_BRIGHTNESS
         if running:
             canvas.fill(UI_STYLE["bg"])
             if PROFILE_UI:
                 ui_start = time.perf_counter()
-            draw_hud_panel(canvas)
 
- 
+            star_clip_rect = UI_LAYOUT.get("star_clip_rect")
+            if star_clip_rect:
+                canvas.set_clip(star_clip_rect)
 
             # Rotate and update frame points regardless of the draw_frame flag
             if rotated:
@@ -2674,6 +3230,9 @@ def main():
             #
             control_vars['scale'] = (canvas_width//2) / parsecs
             control_vars['sphere'] = parsecs
+            canvas_center = get_canvas_center(canvas)
+            if sun_sprite is not None:
+                anchor_sun_sprite(sun_sprite, canvas_center, control_vars['scale'])
             # Rotate the galactic center star
 
             if control_vars['draw_frame']:
@@ -2695,8 +3254,6 @@ def main():
                 ui_time += time.perf_counter() - ui_start
 
             mouse_pos = pygame.mouse.get_pos()
-            draw_arrow_button(canvas, decrease_button_rect, "left", decrease_button_rect.collidepoint(mouse_pos))
-            draw_arrow_button(canvas, increase_button_rect, "right", increase_button_rect.collidepoint(mouse_pos))
 
             # Step 2: Determine which stars are visible and create a visible sprite group
             if parsecs_changed:
@@ -2709,6 +3266,12 @@ def main():
                     dist_sq,
                     sprite_list,
                 )
+                if sun_index is not None and visible_indices.size:
+                    visible_indices = visible_indices[visible_indices != sun_index]
+                    if not control_vars.get('show_sun', True) and sun_sprite is not None and sun_sprite in custom_visible_star_sprites:
+                        custom_visible_star_sprites.remove(sun_sprite)
+                    elif control_vars.get('show_sun', True) and sun_sprite is not None and sun_sprite not in custom_visible_star_sprites:
+                        custom_visible_star_sprites.add(sun_sprite)
                 visible_magindices = compute_magindices_for_indices(
                     visible_indices,
                     xy_sq,
@@ -2716,6 +3279,14 @@ def main():
                     abs_mags,
                     observerPOS,
                     all_star_points,
+                    control_vars['MagOffset'],
+                    normalize=control_vars.get('normalize_brightness', False),
+                    ref_distance=control_vars.get('sphere', None),
+                    auto_normalize=control_vars.get('auto_normalize_far', False),
+                    parsecs=parsecs,
+                    use_absolute=not control_vars.get('brightness_from_sun', True),
+                    brightness_from_sun=control_vars.get('brightness_from_sun', True),
+                    brightness_mode=control_vars.get('brightness_mode', 'sun'),
                 )
                 last_observer_pos = observerPOS
                 parsecs_changed = False
@@ -2728,6 +3299,14 @@ def main():
                     abs_mags,
                     observerPOS,
                     all_star_points,
+                    control_vars['MagOffset'],
+                    normalize=control_vars.get('normalize_brightness', False),
+                    ref_distance=control_vars.get('sphere', None),
+                    auto_normalize=control_vars.get('auto_normalize_far', False),
+                    parsecs=parsecs,
+                    use_absolute=not control_vars.get('brightness_from_sun', True),
+                    brightness_from_sun=control_vars.get('brightness_from_sun', True),
+                    brightness_mode=control_vars.get('brightness_mode', 'sun'),
                 )
                 last_observer_pos = observerPOS
             if control_vars['brightness_changed'] or control_vars['MagOffset'] != last_mag_offset:
@@ -2738,114 +3317,145 @@ def main():
                     abs_mags,
                     observerPOS,
                     all_star_points,
+                    control_vars['MagOffset'],
+                    normalize=control_vars.get('normalize_brightness', False),
+                    ref_distance=control_vars.get('sphere', None),
+                    auto_normalize=control_vars.get('auto_normalize_far', False),
+                    parsecs=parsecs,
+                    use_absolute=not control_vars.get('brightness_from_sun', True),
+                    brightness_from_sun=control_vars.get('brightness_from_sun', True),
+                    brightness_mode=control_vars.get('brightness_mode', 'sun'),
                 )
                 last_mag_offset = control_vars['MagOffset']
                 control_vars['brightness_changed'] = False
                 rotated = True
 
+            # Ensure Sun visibility matches the toggle by adding/removing from the draw group
+            if sun_sprite is not None:
+                if control_vars.get('show_sun', True):
+                    if sun_sprite not in custom_visible_star_sprites:
+                        custom_visible_star_sprites.add(sun_sprite)
+                else:
+                    if sun_sprite in custom_visible_star_sprites:
+                        custom_visible_star_sprites.remove(sun_sprite)
+
             # Step 2: Update only the visible stars using the map
-            if rotated :
-                if visible_indices.size:
-                    if visible_magindices.size != visible_indices.size:
-                        visible_magindices = compute_magindices_for_indices(
-                            visible_indices,
-                            xy_sq,
-                            z_vals,
-                            abs_mags,
-                            observerPOS,
-                            all_star_points,
-                        )
-                        last_observer_pos = observerPOS
-                    rotated_points = rotate_points_numba(all_star_points[visible_indices], q_np)
-                    for idx, new_position, magindex in zip(visible_indices, rotated_points, visible_magindices):
-                        sprite_list[idx].set_position_3d(new_position, control_vars['scale'], observerPOS, magindex)
-                rotated = False
+        if visible_indices.size:
+            if visible_magindices.size != visible_indices.size:
+                visible_magindices = compute_magindices_for_indices(
+                    visible_indices,
+                        xy_sq,
+                        z_vals,
+                        abs_mags,
+                        observerPOS,
+                        all_star_points,
+                        control_vars['MagOffset'],
+                        normalize=control_vars.get('normalize_brightness', False),
+                        ref_distance=control_vars.get('sphere', None),
+                        auto_normalize=control_vars.get('auto_normalize_far', False),
+                        parsecs=parsecs,
+                        use_absolute=not control_vars.get('brightness_from_sun', True),
+                        brightness_from_sun=control_vars.get('brightness_from_sun', True),
+                    brightness_mode=control_vars.get('brightness_mode', 'sun'),
+                )
+                last_observer_pos = observerPOS
+            rotated_points = rotate_points_numba(all_star_points[visible_indices], q_np)
+            for idx, new_position, magindex in zip(visible_indices, rotated_points, visible_magindices):
+                sprite_list[idx].set_position_3d(new_position, control_vars['scale'], observerPOS, magindex)
+        rotated = False
+
+        # Step 2b: Twinkle update (visible sprites only, throttled)
+        update_twinkle_for_visible(sprite_list, visible_indices)
 
 
 
-            # Step 3: Update only the visible stars
-            # for star in custom_visible_star_sprites:
-            #     # Assuming that `rotated_points` is a list or array with the same order as `all_stars_sprites_group`
-            #     index = all_stars_sprites_group.sprites().index(star)  # Find the index of the star in the original group
-            #     new_position = rotated_points[index]  # Get the corresponding rotated position
-                
-            #     # Update the star's position with the new rotated and scaled position
-            #     star.set_position_3d(new_position,control_vars['scale'],observerPOS)
-
-
-
-            custom_visible_star_sprites.draw(canvas)
-
-            if clearInfo:
-                custom_visible_star_sprites.clearInfo()
-                clearInfo = False
-            if mouse_x is not None and mouse_y is not None:
-                infoSpriteGroup = find_star_by_position(custom_visible_star_sprites, mouse_x, mouse_y)
+        # Step 3: Update only the visible stars
+        # for star in custom_visible_star_sprites:
+        #     # Assuming that `rotated_points` is a list or array with the same order as `all_stars_sprites_group`
+        #     index = all_stars_sprites_group.sprites().index(star)  # Find the index of the star in the original group
+        #     new_position = rotated_points[index]  # Get the corresponding rotated position
             
-            infoSpriteGroup.drawInfo(canvas,parsecs)
+        #     # Update the star's position with the new rotated and scaled position
+        #     star.set_position_3d(new_position,control_vars['scale'],observerPOS)
 
-            FPS_text, frame_count,start_time = showFPS(FPS_text,frame_count,start_time)
-            parsec_text = f"Distance: {parsecs:.1f} pc"
-            if parsec_text != last_parsec_text:
-                parsec_surface = render_ui_text(parsec_text, UI_FONTS["body"], UI_STYLE["text"])
-                last_parsec_text = parsec_text
-            if FPS_text != last_fps_text:
-                fps_surface = render_ui_text(FPS_text, UI_FONTS["micro"], UI_STYLE["text_muted"])
-                last_fps_text = FPS_text
-            brightness_text = f"Brightness: {control_vars['MagOffset']:+d}"
-            if brightness_text != last_brightness_text:
-                brightness_surface = render_ui_text(brightness_text, UI_FONTS["body"], UI_STYLE["text"])
-                last_brightness_text = brightness_text
-            if PROFILE_UI:
-                ui_start = time.perf_counter()
-            status_x, status_y = UI_LAYOUT.get("status_pos", (20, 48))
-            canvas.blit(fps_surface, (status_x, status_y))
 
-            distance_label_y = UI_LAYOUT.get("distance_label_pos", (slider_x, slider_y))[1]
-            distance_value_right = UI_LAYOUT.get("distance_value_right", slider_x + slider_width)
-            canvas.blit(
-                parsec_surface,
-                (distance_value_right - parsec_surface.get_width(), distance_label_y),
-            )
 
-            brightness_label_y = UI_LAYOUT.get("brightness_label_pos", (BRIGHTNESS_SLIDER_X, BRIGHTNESS_SLIDER_Y))[1]
-            brightness_value_right = UI_LAYOUT.get("brightness_value_right", BRIGHTNESS_SLIDER_X + BRIGHTNESS_SLIDER_WIDTH)
-            canvas.blit(
-                brightness_surface,
-                (
-                    brightness_value_right - brightness_surface.get_width(),
-                    brightness_label_y,
-                ),
-            )
-            if PROFILE_UI:
-                ui_time += time.perf_counter() - ui_start
-             
- #           x_offset, y_offset, canvas_scale = drawScreenUpdate(screen, canvas, bestHeight)
- #           text_rect = pygame.Rect(10, 10, 700, 500)  # Define the area for text
- #           render_text(screen, response, font, CIndex.WHITE, text_rect, text_rect.width)
+        custom_visible_star_sprites.draw(canvas)
+        draw_constellation_highlights(canvas, custom_visible_star_sprites, control_vars.get('constellation_abbr', ""))
 
-            pygame.display.flip()
-            if PROFILE_UI:
-                frame_end = time.perf_counter()
-                profile_state["ui_total"] += ui_time * 1000
-                profile_state["frame_total"] += (frame_end - frame_start) * 1000
-                profile_state["count"] += 1
-                profile_state["frames"] += 1
-                now_ms = pygame.time.get_ticks()
-                if now_ms - profile_state["last_report"] >= PROFILE_INTERVAL_MS:
+        if clearInfo:
+            custom_visible_star_sprites.clearInfo()
+            clearInfo = False
+        if mouse_x is not None and mouse_y is not None:
+            panel_rect = UI_LAYOUT.get("panel_rect")
+            if panel_rect and panel_rect.collidepoint(mouse_x, mouse_y):
+                pass  # ignore HUD clicks for star info
+            else:
+                infoSpriteGroup = find_star_by_position(custom_visible_star_sprites, mouse_x, mouse_y)
+        
+        infoSpriteGroup.drawInfo(canvas,parsecs)
+
+        FPS_text, frame_count,start_time = showFPS(FPS_text,frame_count,start_time)
+        parsec_text = f"Distance: {parsecs:.1f} pc"
+        if parsec_text != last_parsec_text:
+            parsec_surface = render_ui_text(parsec_text, UI_FONTS["body"], UI_STYLE["text"])
+            last_parsec_text = parsec_text
+        if FPS_text != last_fps_text:
+            fps_surface = render_ui_text(FPS_text, UI_FONTS["body"], UI_STYLE["text"])
+            last_fps_text = FPS_text
+        brightness_text = f"Brightness: {control_vars['MagOffset']:+d}"
+        if brightness_text != last_brightness_text:
+            brightness_surface = render_ui_text(brightness_text, UI_FONTS["body"], UI_STYLE["text"])
+            last_brightness_text = brightness_text
+        mode_text = brightness_mode_label(control_vars.get('brightness_mode', 'sun'))
+        if mode_text != last_mode_text:
+            mode_surface = render_ui_text(mode_text, UI_FONTS["micro"], UI_STYLE["text_muted"])
+            last_mode_text = mode_text
+
+        if star_clip_rect:
+            canvas.set_clip(None)
+
+        # Draw HUD after stars so the panel masks the wireframe/points
+        draw_hud_panel(canvas)
+        draw_futuristic_menu(canvas, selected_filter, menu_rects)
+        draw_exit_button(canvas, quit_button_rect)
+        draw_constellation_controls(canvas, control_vars, constellation_prev_rect, constellation_next_rect, UI_LAYOUT["constellation_value_pos"])
+        draw_distance_slider(canvas, circle_x, circle_radius, active=control_vars.get('dragging_distance'))
+        draw_brightness_slider(canvas, control_vars['MagOffset'], active=control_vars.get('dragging_brightness'))
+        draw_brightness_buttons(canvas, brightness_dec_rect, brightness_inc_rect)
+        draw_toggle_button(canvas, mode_button_rect, brightness_mode_label(control_vars.get('brightness_mode', 'sun')), control_vars.get('brightness_mode', 'sun') == 'sun')
+        draw_toggle_button(canvas, sun_toggle_rect, "Show Sun", control_vars.get('show_sun', True))
+        flash_until = control_vars.get('sun_toggle_flash_until', 0)
+        now_ms = pygame.time.get_ticks()
+        if flash_until and flash_until > now_ms:
+            pygame.draw.rect(canvas, UI_STYLE["accent_alt"], sun_toggle_rect.inflate(4, 4), width=2)
+
+        if PROFILE_UI:
+            ui_time += time.perf_counter() - ui_start
+
+        pygame.display.flip()
+        if PROFILE_UI:
+            frame_end = time.perf_counter()
+            profile_state["ui_total"] += ui_time * 1000
+            profile_state["frame_total"] += (frame_end - frame_start) * 1000
+            profile_state["count"] += 1
+            profile_state["frames"] += 1
+            now_ms = pygame.time.get_ticks()
+            if now_ms - profile_state["last_report"] >= PROFILE_INTERVAL_MS:
+                avg_ui = profile_state["ui_total"] / profile_state["count"]
+                avg_frame = profile_state["frame_total"] / profile_state["count"]
+                print(f"[UI profile] avg ui {avg_ui:.2f} ms | avg frame {avg_frame:.2f} ms | samples {profile_state['count']}")
+                profile_state["ui_total"] = 0.0
+                profile_state["frame_total"] = 0.0
+                profile_state["count"] = 0
+                profile_state["frames"] = 0
+                profile_state["last_report"] = now_ms
+            if PROFILE_MAX_FRAMES and profile_state["frames"] >= PROFILE_MAX_FRAMES:
+                if profile_state["count"]:
                     avg_ui = profile_state["ui_total"] / profile_state["count"]
                     avg_frame = profile_state["frame_total"] / profile_state["count"]
-                    print(f"[UI profile] avg ui {avg_ui:.2f} ms | avg frame {avg_frame:.2f} ms | samples {profile_state['count']}")
-                    profile_state["ui_total"] = 0.0
-                    profile_state["frame_total"] = 0.0
-                    profile_state["count"] = 0
-                    profile_state["last_report"] = now_ms
-                if PROFILE_MAX_FRAMES and profile_state["frames"] >= PROFILE_MAX_FRAMES:
-                    if profile_state["count"]:
-                        avg_ui = profile_state["ui_total"] / profile_state["count"]
-                        avg_frame = profile_state["frame_total"] / profile_state["count"]
-                        print(f"[UI profile] final avg ui {avg_ui:.2f} ms | avg frame {avg_frame:.2f} ms | samples {profile_state['count']}")
-                    running = False
+                    print(f"[UI profile] final avg ui {avg_ui:.2f} ms | avg frame {avg_frame:.2f} ms | samples {profile_state['count']}")
+                running = False
 
         else:
             print("Ending simulation")

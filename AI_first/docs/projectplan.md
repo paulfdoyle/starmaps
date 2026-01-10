@@ -7,14 +7,14 @@ Internal source of truth for projects and phases. Use PM.html for the visual por
 - Restructure the repo into a professional, standard layout for the Python-first star visualization codebase.
 
 ## Projects
-- **reporestructure (active)**
+- **reporestructure (complete)**
   - Summary: `AI_first/projects/reporestructure/project_summary_reporestructure.md`
   - Phases root: `AI_first/projects/reporestructure/phases/`
   - Issues log: use BugMgmt entries with `project: "reporestructure"`
   - Phases overview:
     - Phase 01 — Repo Structure (closed): see `AI_first/projects/reporestructure/phases/phase01/`.
     - Phase 02 — BCO1 Migration & Archive (closed): see `AI_first/projects/reporestructure/phases/phase02/`.
-    - Phase 03 — Performance & Technical Review (active): see `AI_first/projects/reporestructure/phases/phase03/`.
+    - Phase 03 — Performance & Technical Review (complete): see `AI_first/projects/reporestructure/phases/phase03/`.
   - Phase directory map:
     - `AI_first/projects/reporestructure/phases/phase01/phase_definition.md` — definition of Phase 01.
     - `AI_first/projects/reporestructure/phases/phase01/action_plan_phase01.md` — action plan for Phase 01 (links to stage actions under `AI_first/projects/reporestructure/phases/phase01/actions/`).
@@ -53,9 +53,12 @@ Internal source of truth for projects and phases. Use PM.html for the visual por
   - Issues log: use Bug Management entries with `project: "ui_redesign"`
   - Phases overview:
     - Phase 01 — Discovery & Direction (planning): see `AI_first/projects/ui_redesign/phases/phase01/`.
+    - Phase 02 — HUD Refinement & Alignment (planning): see `AI_first/projects/ui_redesign/phases/phase02/`.
   - Phase directory map:
     - `AI_first/projects/ui_redesign/phases/phase01/phase_definition.md` — definition of Phase 01.
     - `AI_first/projects/ui_redesign/phases/phase01/action_plan_phase01.md` — action plan for Phase 01 (links to stage actions under `AI_first/projects/ui_redesign/phases/phase01/actions/`).
+    - `AI_first/projects/ui_redesign/phases/phase02/phase_definition.md` — definition of Phase 02.
+    - `AI_first/projects/ui_redesign/phases/phase02/action_plan_phase02.md` — action plan for Phase 02 (links to stage actions under `AI_first/projects/ui_redesign/phases/phase02/actions/`).
 
 ## Project-wide references and actions
 - Personas: `AI_first/docs/project_wide_docs/personas.md`.

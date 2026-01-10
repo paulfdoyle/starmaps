@@ -130,12 +130,10 @@
 <li>Implementation progress:</li>
 <li>Added HUD panel rendering, UI palette, and scalable layout in <code>src/starmaps/bco1.py</code>.</li>
 <li>Updated menu/button/slider styling to use the new palette and typography.</li>
-<li>Positioned header, filters label, distance/brightness labels, and help text inside the HUD.</li>
-<li>Unified distance control to discrete parsec steps across slider, arrow buttons, and +/- keys.</li>
-<li>Brightness slider now supports drag/hover scroll only when the cursor is over the slider.</li>
-<li>Slider rendering uses shared track/knob component with active-state styling.</li>
-<li>Cached HUD static surface and pre-rendered button/arrow surfaces; per-frame UI work now mostly blits.</li>
-<li>Added brightness +/- micro-controls and button cache surfaces.</li>
+<li>Positioned header, filters label, distance/brightness labels, and help text inside the HUD with a fixed-width column to prevent overlap.</li>
+<li>Unified distance control to slider-only (keys still supported); removed distance arrow buttons and brightness scroll bindings to reduce clutter.</li>
+<li>Brightness slider uses +/- micro-controls beside the slider; scroll is disabled to avoid accidental changes.</li>
+<li>Slider rendering uses shared track/knob component with active-state styling and cached labels; HUD background is cached and re-used.</li>
 <li>Added UI profiling hooks gated by <code>BCO_UI_PROFILE</code> and optional auto-exit frame count.</li>
 </ul>
 <h2>Validation</h2>

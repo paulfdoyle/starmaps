@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stage Action (ui_redesign_phase02_stage_hud_polish_action.md)</title>
+  <link rel="stylesheet" href="../../../../../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../../../../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../../../../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../../../../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../../../../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Stage Action (ui_redesign_phase02_stage_hud_polish_action.md)</h1>
+        <p class="muted small">AI_first/projects/ui_redesign/phases/phase02/actions/ui_redesign_phase02_stage_hud_polish_action.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../../../../../projects/ui_redesign/phases/phase02/actions/ui_redesign_phase02_stage_hud_polish_action.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Stage Action (ui_redesign_phase02_stage_hud_polish_action.md)</h1>
+<ul>
+<li>**Phase/Stage:** Phase 02 — HUD Refinement &amp; Alignment (hud_polish).</li>
+<li>**Objective:** Eliminate HUD overlap and tighten visual hierarchy for the BCO UI panel.</li>
+<li>**Scope:** In: panel layout, spacing, control alignment, label/readout positioning, hit target sizing; Out: new features or rendering engine changes.</li>
+<li>**Acceptance:** HUD shows no overlap across typical resolutions, controls align to a grid, labels/readouts are padded, hit targets meet ~44px, and readability improves (contrast/padding).</li>
+<li>**Dependencies/data:** <code>src/starmaps/bco1.py</code>, Phase 01 audit notes/screenshot feedback.</li>
+<li>**Outputs:** Updated HUD layout in code, before/after screenshots, validation notes.</li>
+<li>**Definition of Done:** Persona notes filled, validation recorded (including at least one run), updated docs/screenshots linked.</li>
+</ul>
+<h2>Personas (record outputs; use <code>AI_first/docs/templates/review_checklists.md</code>)</h2>
+<ul>
+<li>Project/Process Manager: scope/risk, owners, and DoD tracking.</li>
+<li>Developer: layout grid, padding, control sizing, cached text usage.</li>
+<li>QA Lead: resolutions tested, overlap checks, hit target verification, FPS/readability.</li>
+<li>UI/Accessibility (optional): focus states, contrast, padding, touch targets.</li>
+<li>Performance/Cost (optional): ensure HUD updates remain event-driven/cached.</li>
+</ul>
+<h2>Plan</h2>
+<ul>
+<li>Define a single-column grid with fixed padding/gap and section rects (header/status, filters, distance, brightness, help/footer).</li>
+<li>Align labels/readouts to slider tracks with consistent insets; enlarge and center +/- controls.</li>
+<li>Remove redundant controls (distance arrows, brightness scroll) and ensure 44px target heights.</li>
+<li>Add light dividers/spacing and adjust help contrast/padding.</li>
+<li>Validate at multiple resolutions; capture screenshots and FPS notes.</li>
+</ul>
+<h2>Execution notes</h2>
+<ul>
+<li>Triage from screenshot:</li>
+<li>Title/Exit overlap; status too tight to title.</li>
+<li>Distance/brightness readouts hug panel edge; brightness +/- small/misaligned to slider.</li>
+<li>Filters well spaced; bottom panel underused; help text faint/left-cramped.</li>
+<li>Initial actions (pending implementation):</li>
+<li>Reposition title/status/exit with padding.</li>
+<li>Align readouts with sliders and inset from edge.</li>
+<li>Resize/re-center +/- buttons to ~44px and align to slider centerline.</li>
+<li>Improve help padding/contrast; optionally add a footer status row (FPS/visible/pc).</li>
+</ul>
+<h2>Validation</h2>
+<ul>
+<li>Pending: run <code>python3 scripts/run_bco1.py</code> and visually verify HUD alignment at common resolutions; note FPS and visible-star count.</li>
+</ul>
+<h2>Documentation updates</h2>
+<ul>
+<li>Pending: add updated HUD screenshot to project docs once validated.</li>
+</ul>
+<h2>Issues &amp; lessons</h2>
+<ul>
+<li>Pending.</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

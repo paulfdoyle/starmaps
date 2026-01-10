@@ -198,6 +198,9 @@
 
   function render() {
     const list = filterIssues();
+    if (selectedId && !list.some(i => norm(i.id) === selectedId)) {
+      selectedId = "";
+    }
     renderSummary(list);
     renderTable(list);
     const selected = selectedId ? list.find(i => norm(i.id) === selectedId) : null;

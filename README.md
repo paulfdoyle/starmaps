@@ -14,6 +14,7 @@ Outputs (if generated) are written to `assets/images/generated/`.
 ## Data
 The BCO1 demo uses:
 - `data/processed/updated_merged_star_exo_data.json`
+- Legacy directories `datasets/` and `rust_code/datasets/` are reference-only; keep active datasets under `data/processed/` to avoid duplication.
 
 ## Layout
 - `src/starmaps/`: core Python package (BCO1 module lives here).

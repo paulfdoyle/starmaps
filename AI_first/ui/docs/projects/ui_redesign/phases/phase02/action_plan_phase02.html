@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phase 02 Action Plan — HUD Refinement &amp; Alignment</title>
+  <link rel="stylesheet" href="../../../../../style/bugmgmt.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a class="nav-link nav-home" href="../../../../../index.html">Home</a>
+      <a class="nav-link nav-process" href="../../../../../process_guide.html">Process Management</a>
+      <a class="nav-link nav-project" href="../../../../../PM.html">Project Management</a>
+      <a class="nav-link nav-bug" href="../../../../../bugmgmt_issues.html">Bug Management</a>
+    </nav>
+    <header class="hero">
+      <div>
+        <h1 class="h4">Phase 02 Action Plan — HUD Refinement &amp; Alignment</h1>
+        <p class="muted small">AI_first/projects/ui_redesign/phases/phase02/action_plan_phase02.md</p>
+      </div>
+      <div class="badges">
+        <a class="btn" href="../../../../../../projects/ui_redesign/phases/phase02/action_plan_phase02.md">Open Raw</a>
+      </div>
+    </header>
+    <section class="card">
+      <div class="md">
+        <h1>Phase 02 Action Plan — HUD Refinement &amp; Alignment</h1>
+<ul>
+<li>**Phase:** see <code>AI_first/projects/ui_redesign/phases/phase02/phase_definition.md</code>.</li>
+<li>**Stage list:**</li>
+<li>HUD polish stage -&gt; <code>AI_first/projects/ui_redesign/phases/phase02/actions/ui_redesign_phase02_stage_hud_polish_action.md</code></li>
+<li>**Objective:** Align HUD controls, remove overlap, and improve readability/affordance for the BCO UI.</li>
+<li>**Scope/files:** In: <code>src/starmaps/bco1.py</code> HUD layout, padding, alignment, control sizing, label/readout positioning; Out: rendering engine changes.</li>
+<li>**Dependencies:** Phase 01 audit complete.</li>
+<li>**Risks/assumptions:** Fixed-width panel; must retain 60+ FPS and avoid per-frame allocations.</li>
+<li>**Persona actions:** Project/Process Manager → Developer → QA Lead; add UI/Accessibility and Performance/Cost as needed.</li>
+<li>**Validation:** HUD renders without overlap at common resolutions; controls align to a grid; readouts padded; hit targets &gt;= 44px; brightness/distance interactions consistent.</li>
+<li>**Rollback:** Revert HUD layout changes if performance or readability regresses.</li>
+<li>**Ready checklist:** Audit notes available; screenshot feedback captured.</li>
+<li>**Done checklist:** Stage action populated with persona notes, validation results, and updated HUD screenshots.</li>
+</ul>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
